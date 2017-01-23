@@ -1,0 +1,3 @@
+exportPattern("^[[:alpha:]]+")
+import(sp)
+useDynLib(fastgrid,kriegepred,obsoper)
