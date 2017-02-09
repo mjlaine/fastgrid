@@ -72,6 +72,36 @@ contains
     end do  
   end subroutine corrdist
 
+!! land sea mask
+  subroutine corrdist2(x1,x,b1, lsm, n, covpars)
+    implicit none
+    real(kind=dbl), intent(in) :: x1(:), x(:,:), lsm(:)
+    integer, intent(in) :: n
+    real(kind=dbl), intent(out) :: b1(n)
+    real(kind=dbl), intent(in) :: covpars(ncovpars)
+    
+    integer :: i
+    real(kind=dbl) :: d
+    real(kind=dbl) :: sig2, clen
+    
+    sig2 = covpars(1)
+    clen = covpars(2)
+    
+    do i=1,n
+       d = sqrt((x1(1)-x(i,1))**2 + (x1(2)-x(i,2))**2)
+       if (lsm(i) .eq. 0.0d0) then
+          if (d .eq. 0.0d0) then
+             b1(i) = sig2
+          else
+             b1(i) = 0.0d0
+          end if
+       else
+          b1(i) = exp(-d/clen)*sig2
+       end if
+    end do  
+  end subroutine corrdist2
+
+  
   !! X = chol(X,'lower'), X(1,1) == -1 on error
   subroutine chol(x,n)
     implicit none

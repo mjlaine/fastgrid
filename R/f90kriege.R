@@ -120,12 +120,13 @@ fastkriege <- function(trend_model, data, grid, cov.pars, bg=NULL,variable="temp
   
     ## add bg field to the results
     if (is.null(bg))
-        ypred2<-data.frame(temperature=ypredgrid)
+      ypred2<-data.frame(temperature=ypredgrid)
     else
   #      ypred2<-data.frame(temperature=ypredgrid+bg$temperature)
-       ypred2<-data.frame(temperature=ypredgrid+bg@data[variable])
+      ypred2<-data.frame(temperature=ypredgrid+bg@data[variable])
     names(ypred2) <- c(variable)
     coordinates(ypred2)<-coordinates(grid)
+    proj4string(ypred2)<-proj4string(grid)
     gridded(ypred2)<-TRUE
     return(ypred2)
 }
@@ -229,3 +230,5 @@ buildcovmat<-function (coords = NULL, cov.model = "exp",
     }
     return(varcov)
 }
+
+
