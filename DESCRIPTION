@@ -1,7 +1,7 @@
 Package: fastgrid
 Type: Package
 Title: Gridding point data to a regular grid 
-Version: 0.9.3
+Version: 0.9.4
 Date: 2016-10-19
 Author: Marko Laine
 Maintainer: Marko Laine <marko.laine@fmi.fi>
