@@ -52,6 +52,45 @@ f90kriege <- function(x,y,b,grid,cy,cgrid,covpars) {
     return(ypred)
 }
 
+
+## cover function for fortran kriging code in kriegecode.f90
+f90kriege2 <- function(x,y,b,grid,lsm,cy,cgrid,covpars) {
+  nobs <- nrow(x)
+  npar <- ncol(x)
+  ngrid <- nrow(grid)
+  
+  ## There is very little checks in the Fortran code, so check the sanity of the inputs here 
+  if (nrow(y) != nobs | ncol(y) != 1 | nrow(cy) != nobs
+      | ncol(grid) != npar | nrow(cgrid) != ngrid | length(lsm) != ngrid
+      | ncol(cy) != 2 | ncol(cgrid) != 2
+      | !is.numeric(covpars) | length(covpars) < 2) {
+    stop("input dimensions do not match")
+  }
+  ## Call the external f90 code for Kriging predictions    
+  ypred <- .Fortran("kriegepred2",
+                    x=as.double(x),
+                    y=as.double(y),
+                    b=as.double(b),
+                    grid=as.double(grid),
+                    ypred=double(length=ngrid),
+                    lsm=as.double(lsm),
+                    cy=as.double(cy),
+                    cgrid=as.double(cgrid),
+                    nobs=as.integer(nobs),
+                    npar=as.integer(npar),
+                    ngrid=as.integer(ngrid),
+                    covpars=as.double(covpars)
+  )$ypred
+  
+  if (b[1,1] == -1.0) {
+    stop("Problems with the covariance information, no prediction done")
+  }
+  
+  return(ypred)
+}
+
+
+
 ### cover function for fortran code for observation operator
 f90Hmat <- function(mlat,mlon,obs) {
   nobs <- nrow(obs)
@@ -78,7 +117,7 @@ f90Hmat <- function(mlat,mlon,obs) {
 }
 
 ## to replace gstat kriege command for prediction over a grid
-fastkriege <- function(trend_model, data, grid, cov.pars, bg=NULL,variable="temperature" ) {
+fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,variable="temperature" ) {
     ## build input matrices
     ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
 
@@ -112,7 +151,11 @@ fastkriege <- function(trend_model, data, grid, cov.pars, bg=NULL,variable="temp
     
     ## Kriging by fortran code
     t1<-proc.time()
-    ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
+    if (is.null(lsm))
+      ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
+    else
+      ypred<-f90kriege2(X,y,B,predgrid,lsm,cy,cgrid,cov.pars)
+    end
     t2<-proc.time()-t1
 
     ypredgrid<-double(length=nrow(grid))*NA
