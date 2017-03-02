@@ -132,7 +132,7 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
       elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
       H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
 #      mu <- as.matrix(H%*%bg$temperature)
-      mu <- as.matrix(H%*%as.matrix(bg@data[variable]))
+      mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
     }
     else {
         mu <- 0.0
@@ -144,7 +144,7 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
     B <- buildcovmat(coords=coordinates(data), cov.model = "exp", cov.pars=cov.pars)
     X <- model.matrix(trend_model_noy, data=data)
 #    y <- as.matrix(data$temperature-mu)
-    y <- as.matrix(data@data[variable]-mu)
+    y <- as.matrix(data@data[,variable]-mu)
     predgrid<-model.matrix(trend_model_noy,data=grid)
     cy <- as.matrix(coordinates(data))
     cgrid <- as.matrix(coordinates(grid))[igrid,]
@@ -166,7 +166,7 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
       ypred2<-data.frame(temperature=ypredgrid)
     else
   #      ypred2<-data.frame(temperature=ypredgrid+bg$temperature)
-      ypred2<-data.frame(temperature=ypredgrid+bg@data[variable])
+      ypred2<-data.frame(temperature=ypredgrid+bg@data[,variable])
     names(ypred2) <- c(variable)
     coordinates(ypred2)<-coordinates(grid)
     proj4string(ypred2)<-proj4string(grid)
