@@ -118,7 +118,8 @@ f90Hmat <- function(mlat,mlon,obs) {
 }
 
 ## to replace gstat kriege command for prediction over a grid
-fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL,lsmy=NULL, bg=NULL,variable="temperature" ) {
+fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
+                       lsm=NULL,lsmy=NULL, bg=NULL, variable="temperature" ) {
     ## build input matrices
     ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
 
