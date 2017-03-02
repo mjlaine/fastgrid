@@ -1,3 +1,4 @@
 exportPattern("^[[:alpha:]]+")
 import(sp)
+import(Matrix)
 useDynLib(fastgrid,kriegepred,obsoper)

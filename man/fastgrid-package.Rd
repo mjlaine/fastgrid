@@ -13,7 +13,7 @@
 The DESCRIPTION file:
 \packageDESCRIPTION{fastgrid}
 \packageIndices{fastgrid}
-~~ An overview of how to use the package, including the most important functions ~~
+% ~~ An overview of how to use the package, including the most important functions ~~
 }
 \author{
 \packageAuthor{fastgrid}
@@ -24,8 +24,8 @@ Maintainer: \packageMaintainer{fastgrid}
 }
 \keyword{ package }
 \seealso{
-\code{\link[gstat:gstat-package]{gstat}}
+\code{\link[pkg:gstat-package]{gstat}}
 }
 \examples{
-esimerkki tahan
+# esimerkki tahan
 }
