@@ -171,6 +171,10 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
     coordinates(ypred2)<-coordinates(grid)
     proj4string(ypred2)<-proj4string(grid)
     gridded(ypred2)<-TRUE
+    
+    if (!is.null(bg))
+      ypred2$diff <- as.vector(ypred2@data[,variable] - bg@data[,variable])
+    
     return(ypred2)
 }
 
