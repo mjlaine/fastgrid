@@ -9,7 +9,7 @@
 !! y = x*beta + eps, eps ~ N(0,b)
 !! ypred = xgrid*beta + Bgrid*B^(-1)(y-x*beta)
 !! cy, cgrid coordinates of data and the grid
-subroutine kriegepred2(x,y,b,grid, ypred, lsm, cy,cgrid,nobs,npar,ngrid, covpars)
+subroutine kriegepred2(x,y,b,grid, ypred, lsm, lsmy, cy,cgrid,nobs,npar,ngrid, covpars)
   implicit none
   
   !  include 'lapack_inc.f90'
@@ -18,7 +18,7 @@ subroutine kriegepred2(x,y,b,grid, ypred, lsm, cy,cgrid,nobs,npar,ngrid, covpars
   integer, parameter :: ncovpars = 2
 
   integer, intent(in) :: nobs, npar, ngrid
-  real(kind=dbl), intent(inout) :: x(nobs,npar), y(nobs,1), b(nobs,nobs), grid(ngrid,npar), ypred(ngrid), lsm(ngrid)
+  real(kind=dbl), intent(inout) :: x(nobs,npar), y(nobs,1), b(nobs,nobs), grid(ngrid,npar), ypred(ngrid), lsm(ngrid), lsmy(nobs)
   real(kind=dbl), intent(in) :: cy(nobs,2), cgrid(ngrid,2)
   real(kind=dbl), intent(in) :: covpars(ncovpars)
   
@@ -41,7 +41,7 @@ subroutine kriegepred2(x,y,b,grid, ypred, lsm, cy,cgrid,nobs,npar,ngrid, covpars
   ! calculate prediction over grid, ypred(i) = X1*beta + B1*B\(y-X*beta)
   do i=1, ngrid
      x1 = grid(i,:)
-     call corrdist2(cgrid(i,:),cy,b1, lsm(i), nobs, covpars)
+     call corrdist3(cgrid(i,:),cy,b1, lsm(i), lsmy,nobs, covpars)
      ypred1 = matmul(x1,beta) + matmul(b1,y)
      ypred(i) = ypred1(1)
   end do
@@ -100,6 +100,43 @@ contains
        end if
     end do  
   end subroutine corrdist2
+
+  !! land sea mask
+  subroutine corrdist3(x1,x,b1, lsm, lsmx, n, covpars)
+    implicit none
+    real(kind=dbl), intent(in) :: x1(:), x(:,:), lsm, lsmx(:)
+    integer, intent(in) :: n
+    real(kind=dbl), intent(out) :: b1(n)
+    real(kind=dbl), intent(in) :: covpars(ncovpars)
+    
+    integer :: i
+    real(kind=dbl) :: d
+    real(kind=dbl) :: sig2, clen
+    
+    sig2 = covpars(1)
+    clen = covpars(2)
+    
+    do i=1,n
+       d = sqrt((x1(1)-x(i,1))**2 + (x1(2)-x(i,2))**2)
+       if (lsm .eq. lsmx(i)) then
+          b1(i) = exp(-d/clen)*sig2
+       else
+          b1(i) = 0.0d0
+       end if          
+!       if (lsm .eq. 0.0d0) then
+!          if (d .le. 0.0d0) then
+!             b1(i) = sig2
+!          elseif (lsmx(i) .eq. 0.0d0) then
+!             b1(i) = exp(-d/clen)*sig2
+!          else
+!             b1(i) = 0.0d0
+!          end if
+!       else
+!          b1(i) = exp(-d/clen)*sig2
+!       end if
+    end do  
+  end subroutine corrdist3
+
   
   !! X = chol(X,'lower'), X(1,1) == -1 on error
   subroutine chol(x,n)

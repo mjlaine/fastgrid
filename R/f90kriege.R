@@ -54,14 +54,14 @@ f90kriege <- function(x,y,b,grid,cy,cgrid,covpars) {
 
 
 ## cover function for fortran kriging code in kriegecode.f90
-f90kriege2 <- function(x,y,b,grid,lsm,cy,cgrid,covpars) {
+f90kriege2 <- function(x,y,b,grid,lsm,lsmy,cy,cgrid,covpars) {
   nobs <- nrow(x)
   npar <- ncol(x)
   ngrid <- nrow(grid)
   
   ## There is very little checks in the Fortran code, so check the sanity of the inputs here 
   if (nrow(y) != nobs | ncol(y) != 1 | nrow(cy) != nobs
-      | ncol(grid) != npar | nrow(cgrid) != ngrid | length(lsm) != ngrid
+      | ncol(grid) != npar | nrow(cgrid) != ngrid | length(lsm) != ngrid | length(lsmy) != nobs
       | ncol(cy) != 2 | ncol(cgrid) != 2
       | !is.numeric(covpars) | length(covpars) < 2) {
     stop("input dimensions do not match")
@@ -74,6 +74,7 @@ f90kriege2 <- function(x,y,b,grid,lsm,cy,cgrid,covpars) {
                     grid=as.double(grid),
                     ypred=double(length=ngrid),
                     lsm=as.double(lsm),
+                    lsmy=as.double(lsmy),
                     cy=as.double(cy),
                     cgrid=as.double(cgrid),
                     nobs=as.integer(nobs),
@@ -117,7 +118,7 @@ f90Hmat <- function(mlat,mlon,obs) {
 }
 
 ## to replace gstat kriege command for prediction over a grid
-fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,variable="temperature" ) {
+fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL,lsmy=NULL, bg=NULL,variable="temperature" ) {
     ## build input matrices
     ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
 
@@ -131,7 +132,6 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
       elon<-seq.int(from=s[1,1],by=s[1,2],len=s[1,3])
       elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
       H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
-#      mu <- as.matrix(H%*%bg$temperature)
       mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
     }
     else {
@@ -143,7 +143,6 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
   
     B <- buildcovmat(coords=coordinates(data), cov.model = "exp", cov.pars=cov.pars)
     X <- model.matrix(trend_model_noy, data=data)
-#    y <- as.matrix(data$temperature-mu)
     y <- as.matrix(data@data[,variable]-mu)
     predgrid<-model.matrix(trend_model_noy,data=grid)
     cy <- as.matrix(coordinates(data))
@@ -151,11 +150,16 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
     
     ## Kriging by fortran code
     t1<-proc.time()
-    if (is.null(lsm))
+    if (is.null(lsm)) {
       ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
-    else
-      ypred<-f90kriege2(X,y,B,predgrid,lsm,cy,cgrid,cov.pars)
-    end
+    }
+    else {
+      if (is.null(lsmy)) {
+        lsmy <- rep(1,length(y))
+      }
+      B <- fixseapointsincov(B,lsmy)
+      ypred<-f90kriege2(X,y,B,predgrid,lsm,lsmy,cy,cgrid,cov.pars)
+    }
     t2<-proc.time()-t1
 
     ypredgrid<-double(length=nrow(grid))*NA
@@ -165,8 +169,8 @@ fastkriege <- function(trend_model, data, grid, cov.pars, lsm=NULL, bg=NULL,vari
     if (is.null(bg))
       ypred2<-data.frame(temperature=ypredgrid)
     else
-  #      ypred2<-data.frame(temperature=ypredgrid+bg$temperature)
       ypred2<-data.frame(temperature=ypredgrid+bg@data[,variable])
+
     names(ypred2) <- c(variable)
     coordinates(ypred2)<-coordinates(grid)
     proj4string(ypred2)<-proj4string(grid)
@@ -278,4 +282,12 @@ buildcovmat<-function (coords = NULL, cov.model = "exp",
     return(varcov)
 }
 
+# set seapoint to landpoint covariances to zero
+fixseapointsincov <- function(B,s){
+  if ((dim(B)[1] != dim(B)[2]) | (dim(B)[1] != length(s)))
+    stop('dimension problem in the inputs')
+  sm <-  !as.logical(s%*%t(s)+(!s)%*%t(!s))
+  B[sm] <- 0.0
+  return(B)
+}
 
