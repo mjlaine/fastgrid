@@ -9,6 +9,22 @@
 
 ### marko.laine@fmi.fi
 
+
+#' fastgrid: A package for computating the notorious bar statistic.
+#'
+#' The foo package provides three categories of important functions:
+#' foo, bar and baz.
+#'
+#' @section functions:
+#' Describe the functions here
+#'
+#' @docType package
+#' @name fastgrid
+NULL
+
+#' @import sp Matrix
+NULL
+
 ## This loads the code to R memory
 # if (!is.loaded("kriegecode")) {
 #    dyn.load("kriegecode.so")
@@ -17,7 +33,76 @@
 #require(Matrix) # for sparseMatrix
 #require(sp) # for spatial objects
 
+## to replace gstat kriege command for prediction over a grid
+#' @export
+fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
+                       lsm=NULL,lsmy=NULL, bg=NULL, variable="temperature" ) {
+  ## build input matrices
+  ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
+  
+  trend_model_noy <- trend_model[-2]
+  grid.variables <- all.vars(trend_model_noy)
+  
+  if (!is.null(bg)) {
+    ## map from from bg grid to station locations
+    ## need the grid for obs operator, FIX me
+    s<-summary(grid)$grid
+    elon<-seq.int(from=s[1,1],by=s[1,2],len=s[1,3])
+    elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
+    H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
+    mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
+  }
+  else {
+    mu <- 0.0
+  }
+  
+  ## non missing of all trend model variables
+  igrid <- complete.cases(as.data.frame(grid)[,grid.variables])
+  
+  B <- buildcovmat(coords=coordinates(data), cov.model = "exp", cov.pars=cov.pars)
+  X <- model.matrix(trend_model_noy, data=data)
+  y <- as.matrix(data@data[,variable]-mu)
+  predgrid<-model.matrix(trend_model_noy,data=grid)
+  cy <- as.matrix(coordinates(data))
+  cgrid <- as.matrix(coordinates(grid))[igrid,]
+  
+  ## Kriging by fortran code
+  t1<-proc.time()
+  if (is.null(lsm)) {
+    ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
+  }
+  else {
+    if (is.null(lsmy)) {
+      lsmy <- rep(1,length(y))
+    }
+    B <- fixseapointsincov(B,lsmy)
+    ypred<-f90kriege2(X,y,B,predgrid,lsm,lsmy,cy,cgrid,cov.pars)
+  }
+  t2<-proc.time()-t1
+  
+  ypredgrid<-double(length=nrow(grid))*NA
+  ypredgrid[igrid]<-ypred
+  
+  ## add bg field to the results
+  if (is.null(bg))
+    ypred2<-data.frame(temperature=ypredgrid)
+  else
+    ypred2<-data.frame(temperature=ypredgrid+bg@data[,variable])
+  
+  names(ypred2) <- c(variable)
+  coordinates(ypred2)<-coordinates(grid)
+  proj4string(ypred2)<-proj4string(grid)
+  gridded(ypred2)<-TRUE
+  
+  if (!is.null(bg))
+    ypred2$diff <- as.vector(ypred2@data[,variable] - bg@data[,variable])
+  
+  return(ypred2)
+}
+
+
 ## cover function for fortran kriging code in kriegecode.f90
+#' @useDynLib fastgrid kriegepred 
 f90kriege <- function(x,y,b,grid,cy,cgrid,covpars) {
     nobs <- nrow(x)
     npar <- ncol(x)
@@ -54,6 +139,7 @@ f90kriege <- function(x,y,b,grid,cy,cgrid,covpars) {
 
 
 ## cover function for fortran kriging code in kriegecode.f90
+#' @useDynLib fastgrid kriegepred2
 f90kriege2 <- function(x,y,b,grid,lsm,lsmy,cy,cgrid,covpars) {
   nobs <- nrow(x)
   npar <- ncol(x)
@@ -91,8 +177,9 @@ f90kriege2 <- function(x,y,b,grid,lsm,lsmy,cy,cgrid,covpars) {
 }
 
 
-
 ### cover function for fortran code for observation operator
+#' @useDynLib fastgrid obsoper
+#' @export
 f90Hmat <- function(mlat,mlon,obs) {
   nobs <- nrow(obs)
   nlat <- length(mlat)
@@ -114,79 +201,15 @@ f90Hmat <- function(mlat,mlon,obs) {
                    h=double(length=4*nobs)
                    )
 
-  return(sparseMatrix(i=f90h$iind,j=f90h$jind,x=f90h$h,dims=c(nobs,nmod)))
+  return(Matrix::sparseMatrix(i=f90h$iind,j=f90h$jind,x=f90h$h,dims=c(nobs,nmod)))
 }
 
-## to replace gstat kriege command for prediction over a grid
-fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
-                       lsm=NULL,lsmy=NULL, bg=NULL, variable="temperature" ) {
-    ## build input matrices
-    ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
-
-    trend_model_noy <- trend_model[-2]
-    grid.variables <- all.vars(trend_model_noy)
-  
-    if (!is.null(bg)) {
-      ## map from from bg grid to station locations
-      ## need the grid for obs operator, FIX me
-      s<-summary(grid)$grid
-      elon<-seq.int(from=s[1,1],by=s[1,2],len=s[1,3])
-      elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
-      H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
-      mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
-    }
-    else {
-        mu <- 0.0
-    }
-
-    ## non missing of all trend model variables
-    igrid <- complete.cases(as.data.frame(grid)[,grid.variables])
-  
-    B <- buildcovmat(coords=coordinates(data), cov.model = "exp", cov.pars=cov.pars)
-    X <- model.matrix(trend_model_noy, data=data)
-    y <- as.matrix(data@data[,variable]-mu)
-    predgrid<-model.matrix(trend_model_noy,data=grid)
-    cy <- as.matrix(coordinates(data))
-    cgrid <- as.matrix(coordinates(grid))[igrid,]
-    
-    ## Kriging by fortran code
-    t1<-proc.time()
-    if (is.null(lsm)) {
-      ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
-    }
-    else {
-      if (is.null(lsmy)) {
-        lsmy <- rep(1,length(y))
-      }
-      B <- fixseapointsincov(B,lsmy)
-      ypred<-f90kriege2(X,y,B,predgrid,lsm,lsmy,cy,cgrid,cov.pars)
-    }
-    t2<-proc.time()-t1
-
-    ypredgrid<-double(length=nrow(grid))*NA
-    ypredgrid[igrid]<-ypred
-  
-    ## add bg field to the results
-    if (is.null(bg))
-      ypred2<-data.frame(temperature=ypredgrid)
-    else
-      ypred2<-data.frame(temperature=ypredgrid+bg@data[,variable])
-
-    names(ypred2) <- c(variable)
-    coordinates(ypred2)<-coordinates(grid)
-    proj4string(ypred2)<-proj4string(grid)
-    gridded(ypred2)<-TRUE
-    
-    if (!is.null(bg))
-      ypred2$diff <- as.vector(ypred2@data[,variable] - bg@data[,variable])
-    
-    return(ypred2)
-}
 
 
 ### Observation operator using bi-linear interpolation and bisection
 ### Returns sparse matrix
 ### See also: f90Hmat, which uses fortran code
+#' @export
 Hmat <- function(mlat,mlon,obs) {
     nobs <- nrow(obs)
     nlat <- length(mlat)
