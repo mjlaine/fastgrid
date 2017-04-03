@@ -9,14 +9,14 @@
 
 ### marko.laine@fmi.fi
 
+## TODO: error processing!!!
 
-#' fastgrid: A package for computating the notorious bar statistic.
+#' fastgrid: faster Kriging by some f90 code
 #'
-#' The foo package provides three categories of important functions:
-#' foo, bar and baz.
-#'
+#' Thre are some functions here to help with gridding point data to a regular grid.
+#' 
 #' @section functions:
-#' Describe the functions here
+#' See \code{\link{fastkriege}}.
 #'
 #' @docType package
 #' @name fastgrid
@@ -34,9 +34,21 @@ NULL
 #require(sp) # for spatial objects
 
 ## to replace gstat kriege command for prediction over a grid
+#' Calculate Kriging predictions
+#'  \item{trend_model}{
+#' @param trend_model formula to build the regression matrices
+#' @param data data containing station temperatures as 
+#' @param grid definition of model grid, must contain longitude, latitude coordinates and variables used in trend_model
+#' @param cov.pars c(sigmasq,phi,tausq)
+#' @param bg optional background field of same dimensions as grid.
+#' @param lsm,lsmy land sea masks for grid and data
+#' @param alt,alty altitude indormation for the grid and data
+#' @param altlen renge paraameter for altitude (meters)
+#'
 #' @export
 fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
-                       lsm=NULL,lsmy=NULL, bg=NULL, variable="temperature" ) {
+                       lsm=NULL,lsmy=NULL, alt=NULL, alty=NULL, altlen=200.0,
+                       bg=NULL, variable="temperature" ) {
   ## build input matrices
   ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
   
@@ -71,12 +83,22 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   if (is.null(lsm)) {
     ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
   }
-  else {
+  else if (is.null(alt) | is.null(alty)) {
     if (is.null(lsmy)) {
       lsmy <- rep(1,length(y))
     }
     B <- fixseapointsincov(B,lsmy)
     ypred<-f90kriege2(X,y,B,predgrid,lsm,lsmy,cy,cgrid,cov.pars)
+  }
+  else {
+    if (is.null(lsmy)) {
+      lsmy <- rep(1,length(y))
+    }
+    B <- fixseapointsincov(B,lsmy)
+    # altitude based covariance matrix as in f90 code !!
+#    B <- B*exp(-as.matrix((dist(alty)/altlen)^2))
+    B <- B*exp(-as.matrix((dist(alty)/altlen)))
+    ypred<-f90kriege3(X,y,B,predgrid,lsm,lsmy,alt,alty,cy,cgrid,c(cov.pars[1],cov.pars[2],altlen))
   }
   t2<-proc.time()-t1
   
@@ -171,6 +193,49 @@ f90kriege2 <- function(x,y,b,grid,lsm,lsmy,cy,cgrid,covpars) {
   
   if (b[1,1] == -1.0) {
     stop("Problems with the covariance information, no prediction done")
+  }
+  
+  return(ypred)
+}
+
+## cover function for fortran kriging code in kriegecode.f90
+#' @useDynLib fastgrid kriegepred3
+f90kriege3 <- function(x,y,b,grid,lsm,lsmy,alt,alty,cy,cgrid,covpars) {
+  nobs <- nrow(x)
+  npar <- ncol(x)
+  ngrid <- nrow(grid)
+  
+  ## There is very little checks in the Fortran code, so check the sanity of the inputs here 
+  if (nrow(y) != nobs | ncol(y) != 1 | nrow(cy) != nobs
+      | ncol(grid) != npar | nrow(cgrid) != ngrid | length(lsm) != ngrid | length(lsmy) != nobs
+      | length(alt) != ngrid | length(alty) != nobs
+      | ncol(cy) != 2 | ncol(cgrid) != 2
+      | !is.numeric(covpars) | length(covpars) < 3) {
+    stop("input dimensions do not match")
+  }
+  ## Call the external f90 code for Kriging predictions    
+  ypred <- .Fortran("kriegepred3",
+                    x=as.double(x),
+                    y=as.double(y),
+                    b=as.double(b),
+                    grid=as.double(grid),
+                    ypred=double(length=ngrid),
+                    lsm=as.double(lsm),
+                    lsmy=as.double(lsmy),
+                    alt=as.double(alt),
+                    alty=as.double(alty),
+                    cy=as.double(cy),
+                    cgrid=as.double(cgrid),
+                    nobs=as.integer(nobs),
+                    npar=as.integer(npar),
+                    ngrid=as.integer(ngrid),
+                    covpars=as.double(covpars)
+  )$ypred
+  
+  # this does not work, please fix me!!!
+  if (b[1,1] == -1.0) {
+    attr(ypred,'failed') <- 1
+    warning("Problems with the covariance information, no prediction done")
   }
   
   return(ypred)
@@ -314,4 +379,3 @@ fixseapointsincov <- function(B,s){
   B[sm] <- 0.0
   return(B)
 }
-
