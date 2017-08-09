@@ -35,15 +35,18 @@ NULL
 
 ## to replace gstat kriege command for prediction over a grid
 #' Calculate Kriging predictions
-#'  \item{trend_model}{
+#' 
 #' @param trend_model formula to build the regression matrices
-#' @param data data containing station temperatures as 
+#' @param data data containing station temperatures as SpatialPoints
 #' @param grid definition of model grid, must contain longitude, latitude coordinates and variables used in trend_model
 #' @param cov.pars c(sigmasq,phi,tausq)
-#' @param bg optional background field of same dimensions as grid.
+#' @param bg optional background field of the same dimensions as the grid
 #' @param lsm,lsmy land sea masks for grid and data
-#' @param alt,alty altitude indormation for the grid and data
-#' @param altlen renge paraameter for altitude (meters)
+#' @param alt,alty altitude information for the grid and data
+#' @param altlen range parameter for altitude (meters)
+#' @param variable the name of the variable to be gridded, default "temperature"
+#' 
+#' @description Now assumes that the coordinate names are \code{longitude} and \latitude{latitude}.
 #'
 #' @export
 fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
@@ -110,6 +113,8 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
     ypred2<-data.frame(temperature=ypredgrid)
   else
     ypred2<-data.frame(temperature=ypredgrid+bg@data[,variable])
+  ## change the name according to the ´variable´
+  names(ypred2) <- variable
   
   names(ypred2) <- c(variable)
   coordinates(ypred2)<-coordinates(grid)
@@ -118,6 +123,8 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   
   if (!is.null(bg))
     ypred2$diff <- as.vector(ypred2@data[,variable] - bg@data[,variable])
+  
+  attr(ypred2,'failed') <- attr(ypred,'failed')
   
   return(ypred2)
 }
@@ -236,6 +243,8 @@ f90kriege3 <- function(x,y,b,grid,lsm,lsmy,alt,alty,cy,cgrid,covpars) {
   if (b[1,1] == -1.0) {
     attr(ypred,'failed') <- 1
     warning("Problems with the covariance information, no prediction done")
+  } else {
+    attr(ypred,'failed') <- 0
   }
   
   return(ypred)
@@ -343,7 +352,7 @@ lookup<-function(x,xi) {
 ### only exponential covariance function implemented so far
 ### TODO: use spDists function from sp
 buildcovmat<-function (coords = NULL, cov.model = "exp",  
-                    cov.pars = stop("no cov.pars argument"), dist.method = "euclidian", ...) {
+                    cov.pars = stop("no cov.pars argument"), dist.method = "euclidean", ...) {
     if (is.null(coords))
         stop("coords missing")
     n <- nrow(coords)
