@@ -46,7 +46,7 @@ NULL
 #' @param altlen range parameter for altitude (meters)
 #' @param variable the name of the variable to be gridded, default "temperature"
 #' 
-#' @description Now assumes that the coordinate names are \code{longitude} and \latitude{latitude}.
+#' @description Now assumes that the coordinate names are \code{longitude} and \code{latitude}.
 #'
 #' @export
 fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
