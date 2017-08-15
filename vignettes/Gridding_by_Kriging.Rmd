@@ -2,7 +2,7 @@
 title: "Gridding point data by Kriging"
 author: "Marko Laine"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette: fig_caption: yes
+output: rmarkdown::html_vignette
 vignette: >
   \VignetteIndexEntry{Gridding point data by Kriging}
   \VignetteEngine{knitr::rmarkdown}
@@ -18,12 +18,17 @@ This document describes grdding of point observations to a regular grid. The cod
 
 ```{r, eval=FALSE, include=TRUE}
 library(MOSfieldutils)
-MOSgrid(stationsfile = stationdata,modelgridfile = mosgrid, bgfile = ECbg)
+stationsfile<- system.file("extdata","201706061910_MOS_2017060612_6_2017060618.csv",package="MOSfieldutils")
+ECMWFbgfile <- system.file("extdata","1715712000006.nc",package="MOSfieldutils")
+mtitle <- '2016-05-17 12Z 06h forecast'
+stations <- MOSstation_cvs_load(stationsfile)
+ECMWFbg <- ECMWF_bg_load(ECMWFbgfile)
+mosfield <- MOSgrid(stations = stations, bgfield = ECMWFbg)
 ```
 
 
-```{r, eval=FALSE, include=TRUE}
-plot_MOS_field(mosfield)
+```{r, fig.show='hold', eval=FALSE, include=TRUE}
+MOS_plot_field(mosfield, stations = stations, layer = "diff", main = mtitle)
 ```
 
 
@@ -62,9 +67,7 @@ Basically, the gridding can be described as
 
 ## Figures
 
-The figure sizes have been customised so that you can easily put two images side-by-side. 
-
-```{r, fig.show='hold',fig.cap="Capttion"}
+```{r, fig.show='hold',fig.cap="Capttion",eval=FALSE}
 MOS_plot_field(out)
 ```
 
