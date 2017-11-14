@@ -22,6 +22,8 @@
 #' @name fastgrid
 NULL
 
+# methods package needed if run by Rscript
+# but seems to need library(methods) in the file.R too (for older version of Matrix)
 #' @import sp Matrix
 NULL
 
@@ -128,6 +130,97 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   
   return(ypred2)
 }
+
+#' @export
+fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
+                       lsm=NULL,lsmy=NULL, alt=NULL, alty=NULL, altlen=200.0,
+                       bg=NULL, variable="temperature" , LapseRate = 0.0) {
+  ## build input matrices
+  ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
+  
+  trend_model_noy <- trend_model[-2]
+  grid.variables <- all.vars(trend_model_noy)
+  
+  if (!is.null(bg)) {
+    ## map from from bg grid to station locations
+    ## need the grid for obs operator, FIX me
+#    s<-sp::summary(grid)$grid
+#    elon<-seq.int(from=s[1,1],by=s[1,2],len=s[1,3])
+#    elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
+#    H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
+#    mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
+    
+    mu <- grid2points_test(bg,data,modelgrid = grid, LapseRate = LapseRate)
+#    mu <- grid2points_test2(bg,data)
+    
+  }
+  else {
+    mu <- 0.0
+  }
+  
+  ## non missing of all trend model variables
+  igrid <- complete.cases(as.data.frame(grid)[,grid.variables])
+  
+  B <- buildcovmat(coords=coordinates(data), cov.model = "exp", cov.pars=cov.pars)
+  X <- model.matrix(trend_model_noy, data=data)
+  y <- as.matrix(data@data[,variable]-mu)
+  predgrid<-model.matrix(trend_model_noy,data=grid)
+  cy <- as.matrix(coordinates(data))
+  cgrid <- as.matrix(coordinates(grid))[igrid,]
+  
+  ## Kriging by fortran code
+  t1<-proc.time()
+  if (is.null(lsm)) {
+    ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
+  }
+  else if (is.null(alt) | is.null(alty)) {
+    if (is.null(lsmy)) {
+      lsmy <- rep(1,length(y))
+    }
+    B <- fixseapointsincov(B,lsmy)
+    ypred<-f90kriege2(X,y,B,predgrid,lsm,lsmy,cy,cgrid,cov.pars)
+  }
+  else {
+    if (is.null(lsmy)) {
+      lsmy <- rep(1,length(y))
+    }
+    B <- fixseapointsincov(B,lsmy)
+    # altitude based covariance matrix as in f90 code !!
+    #    B <- B*exp(-as.matrix((dist(alty)/altlen)^2))
+    B <- B*exp(-as.matrix((dist(alty)/altlen)))
+    ypred<-f90kriege3(X,y,B,predgrid,lsm,lsmy,alt,alty,cy,cgrid,c(cov.pars[1],cov.pars[2],altlen))
+  }
+  t2<-proc.time()-t1
+  
+  ypredgrid<-double(length=nrow(grid))*NA
+  ypredgrid[igrid]<-ypred
+  
+  ## add bg field to the results
+  if (is.null(bg))
+    ypred2<-data.frame(temperature=ypredgrid)
+  else
+    ypred2<-data.frame(temperature=ypredgrid+bg@data[,variable])
+  ## change the name according to the ´variable´
+  names(ypred2) <- variable
+  
+  names(ypred2) <- c(variable)
+  coordinates(ypred2)<-coordinates(grid)
+  proj4string(ypred2)<-proj4string(grid)
+  gridded(ypred2)<-TRUE
+  
+  if (!is.null(bg))
+    ypred2$diff <- as.vector(ypred2@data[,variable] - bg@data[,variable])
+  
+  attr(ypred2,'failed') <- attr(ypred,'failed')
+
+  attr(ypred2,'MOSvalues') <-  as.matrix(data@data[,variable])
+  attr(ypred2,'mappedvalues') <-  mu
+  attr(ypred2,'stationlocations') <- cy
+    
+  return(ypred2)
+}
+
+
 
 
 ## cover function for fortran kriging code in kriegecode.f90
@@ -250,6 +343,7 @@ f90kriege3 <- function(x,y,b,grid,lsm,lsmy,alt,alty,cy,cgrid,covpars) {
   return(ypred)
 }
 
+# Hmat is used like Hmat(lon,lat) in the code! CHANGE names!!!
 
 ### cover function for fortran code for observation operator
 #' @useDynLib fastgrid obsoper
@@ -324,6 +418,15 @@ intcoef <- function(x1,x2,x1l,x1u,x2l,x2u) {
     h
 }
 
+### calculate interpolation coefficients for nearest neighbour
+intcoef.nearest <- function(x1,x2,x1l,x1u,x2l,x2u) {
+  # ll,ul,lu,uu
+  i <- which.min(c((x1-x1l)^2+(x2-x2l)^2, (x1-x1u)^2+(x2-x2l)^2, (x1-x1l)^2+(x2-x2u)^2, (x1-x1u)^2+(x2-x2u)^2))
+  h <- matrix(data=c(0.0,0.0,0.0,0.0),nrow=1,ncol=4)
+  h[1,i] = 1.0
+  h
+}
+
 ### table lookup by bisection 
 lookup<-function(x,xi) {
     n <- length(x)
@@ -387,4 +490,72 @@ fixseapointsincov <- function(B,s){
   sm <-  !as.logical(s%*%t(s)+(!s)%*%t(!s))
   B[sm] <- 0.0
   return(B)
+}
+
+
+## map grid values to points (there is one in MOSfieldutils, too)
+#' @export
+grid2points_test <- function(grid,data,variable="temperature", LapseRate=MOSget('LapseRate'),  modelgrid=NULL, method='bilinear') {
+  grid.grid <- sp::getGridTopology(grid)
+  mlon<-sp::coordinatevalues(grid.grid)$longitude
+  mlat<-sp::coordinatevalues(grid.grid)$latitude
+  
+  nlat <- length(mlat)
+  nlon <- length(mlon)
+  nmod <- nlat*nlon
+
+  # needs MOSfieldutils here  
+  if (is.null(modelgrid)) {
+    data("KriegeData", package = MOS.options$pkg, envir = parent.frame())
+    modelgrid <- KriegeData
+  }
+
+  #  grid.alt <- grid$altitude
+  grid.alt <- modelgrid$elevation
+  grid.y <- as.matrix(grid@data[,variable])
+  data.coord <- sp::coordinates(data)
+  data.alt <- data$elevation
+  
+  nobs <- nrow(data)
+  y <- rep(0.0,nobs)
+  
+  for (i in 1:nobs) {
+    olat <- data.coord[i,"latitude"]
+    olon <- data.coord[i,"longitude"]
+    j1j2 <- lookup(mlat,olat)
+    i1i2 <- lookup(mlon,olon)
+    i1<-i1i2[1]
+    i2<-i1i2[2]
+    j1<-j1j2[1]
+    j2<-j1j2[2]
+    I1 <- sub2ind(c(nlon,nlat),i1,j1)
+    I2 <- sub2ind(c(nlon,nlat),i2,j1)
+    I3 <- sub2ind(c(nlon,nlat),i1,j2)
+    I4 <- sub2ind(c(nlon,nlat),i2,j2)
+    T1 <- grid.y[I1] - LapseRate*(data.alt[i]-grid.alt[I1])/1000.0
+    T2 <- grid.y[I2] - LapseRate*(data.alt[i]-grid.alt[I2])/1000.0
+    T3 <- grid.y[I3] - LapseRate*(data.alt[i]-grid.alt[I3])/1000.0
+    T4 <- grid.y[I4] - LapseRate*(data.alt[i]-grid.alt[I4])/1000.0
+    if (method=='bilinear') {
+      y[i] <- intcoef(olon,olat,mlon[i1],mlon[i2],mlat[j1],mlat[j2])%*%as.matrix(c(T1,T2,T3,T4),nrow=4)
+    } else if (method =='nearest') {
+      h4 <- intcoef.nearest(olon,olat,mlon[i1],mlon[i2],mlat[j1],mlat[j2])
+      y[i] <- as.matrix(c(T1,T2,T3,T4),nrow=4)[which(h4==1)[1]]
+    } else {
+      stop('unknown methods in interpolation')
+    }
+  }
+  
+  return(y)
+  
+}
+
+#' @export
+grid2points_test2<-function(grid,data,variable="temperature"){
+  grid.grid <- sp::getGridTopology(grid)
+  elon<-sp::coordinatevalues(grid.grid)$longitude
+  elat<-sp::coordinatevalues(grid.grid)$latitude
+  H<-fastgrid::Hmat(elon,elat,coordinates(data))
+  y <- as.matrix(H%*%as.matrix(grid@data[,variable]))
+  return(y)
 }

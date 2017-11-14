@@ -21,7 +21,7 @@ library(MOSfieldutils)
 stationsfile<- system.file("extdata","201706061910_MOS_2017060612_6_2017060618.csv",package="MOSfieldutils")
 ECMWFbgfile <- system.file("extdata","1715712000006.nc",package="MOSfieldutils")
 mtitle <- '2016-05-17 12Z 06h forecast'
-stations <- MOSstation_cvs_load(stationsfile)
+stations <- MOSstation_csv_load(stationsfile)
 ECMWFbg <- ECMWF_bg_load(ECMWFbgfile)
 mosfield <- MOSgrid(stations = stations, bgfield = ECMWFbg)
 ```
