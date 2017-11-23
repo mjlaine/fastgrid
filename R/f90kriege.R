@@ -13,7 +13,7 @@
 
 #' fastgrid: faster Kriging by some f90 code
 #'
-#' Thre are some functions here to help with gridding point data to a regular grid.
+#' These are some functions here to help with gridding point data to a regular grid.
 #' 
 #' @section functions:
 #' See \code{\link{fastkriege}}.
