@@ -6,6 +6,5 @@ src/*.o
 src/*.so
 src/*.dll
 src/*~
-man/*.Rd
 inst/doc
 *~
