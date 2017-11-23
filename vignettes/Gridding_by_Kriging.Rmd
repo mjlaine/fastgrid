@@ -67,7 +67,7 @@ Basically, the gridding can be described as
 
 ## Figures
 
-```{r, fig.show='hold',fig.cap="Capttion",eval=FALSE}
+```{r, fig.show='hold',fig.cap="Caption",eval=FALSE}
 MOS_plot_field(out)
 ```
 
