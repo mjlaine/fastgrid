@@ -69,7 +69,8 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
     s<-sp::summary(grid)$grid
     elon<-seq.int(from=s[1,1],by=s[1,2],len=s[1,3])
     elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
-    H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
+#    H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
+    H<-f90Hmat(elon,elat,coordinates(data))
     mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
   }
   else {
