@@ -5,7 +5,7 @@
 \alias{grid2points_lapserate}
 \title{Map grid to poinits}
 \usage{
-grid2points(grid, data, variable = "temperature")
+grid2points(grid, data, variable = "temperature", method = "bilinear")
 
 grid2points_lapserate(grid, data, variable = "temperature",
   LapseRate = MOSget("LapseRate"), modelgrid = NULL, method = "bilinear")

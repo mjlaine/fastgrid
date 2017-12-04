@@ -111,7 +111,8 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   }
   t2<-proc.time()-t1
   
-  ypredgrid<-double(length=nrow(grid))*NA
+#  ypredgrid<-double(length=nrow(grid))*NA
+  ypredgrid<-double(length=length(igrid))*NA
   ypredgrid[igrid]<-ypred
   
   ## add bg field to the results
@@ -138,7 +139,8 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
 #' @export
 fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
                        lsm=NULL,lsmy=NULL, alt=NULL, alty=NULL, altlen=200.0,
-                       bg=NULL, variable="temperature" , LapseRate = 0.0) {
+                       bg=NULL, variable="temperature", LapseRate = 0.0,
+                       method='bilinear') {
   ## build input matrices
   ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
   
@@ -154,7 +156,9 @@ fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
 #    H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
 #    mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
     
-    mu <- grid2points_lapserate(bg,data,modelgrid = grid, LapseRate = LapseRate)
+    mu <- grid2points_lapserate(bg,data,modelgrid = grid,
+                                LapseRate = LapseRate,
+                                method=method)
 #    mu <- grid2points_test2(bg,data)
     
   }
@@ -196,7 +200,8 @@ fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   }
   t2<-proc.time()-t1
   
-  ypredgrid<-double(length=nrow(grid))*NA
+#  ypredgrid<-double(length=nrow(grid))*NA
+  ypredgrid<-double(length=length(igrid))*NA
   ypredgrid[igrid]<-ypred
   
   ## add bg field to the results

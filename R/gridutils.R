@@ -34,8 +34,20 @@ f90Hmat <- function(mlat,mlon,obs) {
 ### Observation operator using bi-linear interpolation and bisection
 ### Returns sparse matrix
 ### See also: f90Hmat, which uses fortran code
+### OBS changed lat,lon to lon,lat in 2017-12-1!!!
+#' Linear observation operator
+#' 
+#' @param mlon,mlat model longitude (x) and latitude (y) coordinates
+#' @param obs matrix with two columns of data x and y coordinates
+#' @param method interpolation method, default 'bilinear'
+#' 
+#' @return 
+#' 
+#' Sparse Matrix on size nrows(obs) times length(mlon)*length(mlat),
+#' each row has at most 4 non-zero elements
+#' 
 #' @export
-Hmat <- function(mlat,mlon,obs) {
+Hmat <- function(mlat,mlon,obs,method='bilinear') {
   nobs <- nrow(obs)
   nlat <- length(mlat)
   nlon <- length(mlon)
@@ -56,7 +68,14 @@ Hmat <- function(mlat,mlon,obs) {
     I2 <- sub2ind(c(nlat,nlon),i2,j1)
     I3 <- sub2ind(c(nlat,nlon),i1,j2)
     I4 <- sub2ind(c(nlat,nlon),i2,j2)
-    H[i,c(I1,I2,I3,I4)] <- intcoef(olat,olon,mlat[i1],mlat[i2],mlon[j1],mlon[j2])
+
+    if (method=='bilinear') {
+      H[i,c(I1,I2,I3,I4)] <- intcoef(olat,olon,mlat[i1],mlat[i2],mlon[j1],mlon[j2])
+    } else if (method =='nearest') {
+      H[i,c(I1,I2,I3,I4)] <- intcoef.nearest(olon,olat,mlon[i1],mlon[i2],mlat[j1],mlat[j2])
+    } else {
+      stop('unknown methods in Hmat')
+    }
   }
   H
 }
@@ -175,6 +194,11 @@ gridlat <- function(x) {
   sp::coordinatevalues(sp::getGridTopology(x))$latitude
 }
 
+# this does not use coordinate names
+#    s<-sp::summary(x)$grid
+#    elon<-seq.int(from=s[1,1],by=s[1,2],len=s[1,3])
+#    elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
+
 ## map grid values to points (uses H from fastgrid)
 #' Map grid to poinits
 #' 
@@ -183,19 +207,30 @@ gridlat <- function(x) {
 #' @param variable variable to be mapped, default \code{temperature}
 #' 
 #' @export
-grid2points<-function(grid,data,variable="temperature"){
+grid2points<-function(grid,data,variable="temperature",method='bilinear'){
   grid.grid <- sp::getGridTopology(grid)
   elon<-sp::coordinatevalues(grid.grid)$longitude
   elat<-sp::coordinatevalues(grid.grid)$latitude
-  H<-fastgrid::f90Hmat(elon,elat,coordinates(data))
-  y <- as.matrix(H%*%as.matrix(grid@data[,variable]))
+  
+  if (method=='bilinear') {
+    H<-f90Hmat(elon,elat,coordinates(data))
+    y <- as.matrix(H%*%as.matrix(grid@data[,variable]))
+  } else if (method =='nearest') {
+    H<-Hmat(elon,elat,coordinates(data),method=method)
+    y <- as.matrix(H%*%as.matrix(grid@data[,variable]))
+  } else {
+    stop('unknown methods in interpolation')
+  }
+  
   return(y)
 }
 
 ## map grid values to points (there is one in MOSfieldutils, too)
 #' @rdname grid2points
 #' @export
-grid2points_lapserate <- function(grid,data,variable="temperature", LapseRate=MOSget('LapseRate'),  modelgrid=NULL, method='bilinear') {
+grid2points_lapserate <- function(grid,data,variable="temperature", 
+                                  LapseRate=MOSget('LapseRate'),
+                                  modelgrid=NULL, method='bilinear') {
   grid.grid <- sp::getGridTopology(grid)
   mlon<-sp::coordinatevalues(grid.grid)$longitude
   mlat<-sp::coordinatevalues(grid.grid)$latitude
@@ -245,8 +280,5 @@ grid2points_lapserate <- function(grid,data,variable="temperature", LapseRate=MO
       stop('unknown methods in interpolation')
     }
   }
-  
   return(y)
-  
 }
-
