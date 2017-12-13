@@ -1,1 +1,2 @@
-PKG_LIBS = -lRlapack -lRblas
+PKG_LIBS = -lRlapack -lRblas -fopenmp
+PKG_FCFLAGS = -fopenmp

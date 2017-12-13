@@ -39,12 +39,14 @@ subroutine kriegepred2(x,y,b,grid, ypred, lsm, lsmy, cy,cgrid,nobs,npar,ngrid, c
   call ltdivide(b,y, nobs, 1)      ! y = L'\y
 
   ! calculate prediction over grid, ypred(i) = X1*beta + B1*B\(y-X*beta)
+  !$OMP PARALLEL DO PRIVATE(i,x1,b1,ypred1)
   do i=1, ngrid
      x1 = grid(i,:)
      call corrdist3(cgrid(i,:),cy,b1, lsm(i), lsmy,nobs, covpars)
      ypred1 = matmul(x1,beta) + matmul(b1,y)
      ypred(i) = ypred1(1)
   end do
+  !$OMP END PARALLEL DO
 
 contains
 !!! Utility functions to call LAPACK and BLAS library routines for some matrix computations.
