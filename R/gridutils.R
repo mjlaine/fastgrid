@@ -282,3 +282,38 @@ grid2points_lapserate <- function(grid,data,variable="temperature",
   }
   return(y)
 }
+
+
+#' Generate uniform rectangular longitude-latitude-based SpatialGrid
+#' 
+#' @param lon,lat longitude and latitude grid center points
+#' @param lonmin,lonmax,londx longitude min, max and cell size, used if \code{lon} not given.
+#' @param latmin,latmax,latdx latitude min, max and cell size, used if \code{lat} not given.
+#' 
+#' @examples  
+#' 
+#' sp::getGridTopology(makelonlatgrid(10,20,-10,10))
+#' 
+#' @export
+makelonlatgrid <- function(lonmin, lonmax, latmin, latmax, londx=1.0, latdx=1.0,
+                     lon=NULL, lat=NULL) {
+  
+  if (!is.null(lon)) {
+    lonmin <- min(lon)
+    lonmax <- max(lon)
+    londx <- abs(lon(2)-lon(1))
+  }
+  if (!is.null(lat)) {
+    latmin <- min(lat)
+    latmax <- max(lat)
+    latdx <- abs(lat(2)-lat(1))
+  }
+  modelgrid <- sp::SpatialGrid(sp::GridTopology(cellcentre.offset=c(lonmin,latmin),
+                                                cellsize=c(londx,latdx),
+                                                cells.dim=c(ceiling((lonmax-lonmin)/londx)+1,
+                                                            ceiling((latmax-latmin)/latdx)+1)),
+                               proj4string=sp::CRS("+init=epsg:4326"))
+  sp::coordnames(modelgrid)<-c('longitude','latitude')
+  return(modelgrid)
+  
+}
