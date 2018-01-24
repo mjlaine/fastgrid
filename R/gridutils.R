@@ -317,3 +317,62 @@ makelonlatgrid <- function(lonmin, lonmax, latmin, latmax, londx=1.0, latdx=1.0,
   return(modelgrid)
   
 }
+
+
+# utility to points2grid
+points2grid0 <- function(pointdata,modelgrid,variable="y",cov.pars) {
+  pointdata <- pointdata[complete.cases(pointdata@data[,variable]),]
+  if (length(pointdata)<4)  stop('too few points')
+  Xgrid <- fastgrid::fastkriege(trend_model=as.formula(paste(variable,'~-1')), data=pointdata, grid=modelgrid, cov.pars=cov.pars,
+                                bg=NULL,lsm=NULL,lsmy=NULL,alt=NULL,alty=NULL,variable=variable)
+  return(Xgrid)
+}
+
+
+#' Grid point data to spatial grid
+#' 
+#' This is an easy to use version of \link{fastkriege}
+#' 
+#' @param y data matrix of point data to be gridded, alternative to giving \code{variable}
+#' @param pointdata SpatialPointsDataFrame of the spatial points
+#' @param modelgrid SpatialGrid or SpatialGridDataFrame of the output grid
+#' @param variable name of the variable in \code{pointdata} to be gridded
+#' @param cov.par Kriging parameters, sigma^2, phi, tau^2.
+#' 
+#' @examples  
+#' 
+#' lonmin <- 19.0; lonmax <- 33.0
+#' latmin <- 59.0; latmax <- 71.5
+#' newgrid <- makelonlatgrid(lonmin=lonmin,lonmax=lonmax,latmin=latmin,latmax=latmax,londx=0.1,latdx=0.1)
+#' nobs <- 50
+#' obs <- data.frame(longitude=runif(nobs,lonmin,lonmax),
+#'                  latitude=runif(nobs,latmin,latmax),
+#'                  temperature=rnorm(nobs,mean=10,sd=4))
+#' sp::coordinates(obs) <- c('longitude','latitude')
+#' out <- pointgridding(pointdata=obs, modelgrid = newgrid, variable="temperature",cov.pars = c(0.5^2,2.0,0.0))
+#' MOSplotting::MOS_plot_field(out,stations=obs,cmin=0,cmax=20)
+#' 
+#' @export
+pointgridding <- function(y=NULL,pointdata,modelgrid,variable="y",cov.pars) {
+  
+  if (is.null(y)) {
+    return(points2grid0(pointdata=pointdata, modelgrid = modelgrid, variable=variable, cov.pars = cov.pars))
+  }
+  
+  # else use each column in matrix y
+  y <- as.matrix(y)
+  pointdata$y <- y[,1]
+  out <- points2grid0(pointdata = pointdata, modelgrid = modelgrid, variable="y", cov.pars = cov.pars)
+  
+  l <- dim(y)[2]
+  if (l>1) {
+    for (i in 2:l) {
+      pointdata$y <- y[,i]
+      out.1 <- points2grid0(pointdata = pointdata, modelgrid = modelgrid, variable="y", cov.pars = cov.pars)
+      ii <- dim(out@data)[2]+1
+      out@data[,ii] <- out.1@data[,"y"]
+    }
+  }
+  return(out)
+}
+
