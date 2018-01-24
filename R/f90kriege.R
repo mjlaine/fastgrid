@@ -131,6 +131,7 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   if (!is.null(bg))
     ypred2$diff <- as.vector(ypred2@data[,variable] - bg@data[,variable])
   
+  attr(ypred2,"elapsed") <- t2
   attr(ypred2,'failed') <- attr(ypred,'failed')
   
   return(ypred2)
