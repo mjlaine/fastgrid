@@ -1,10 +1,11 @@
-### Fast Krieging by calling fortran Krieging code from R
-### This only works with MOS temperature data in predefined format
+### Fast Krieging by calling fortran code from R
+### INTENDED FOR MOS temperature data in predefined format
+### but might work for other purposes, too.
 ###
 ### compilation of the shared code by a command like:
 ### R CMD SHLIB kriegecode.f90 -lRblas -lRlapack
 ###
-### or install as package:
+### or preferably install as package:
 ### R CMD INSTALL fastgrid_n.n.tar.gz
 
 ### marko.laine@fmi.fi
@@ -26,7 +27,8 @@
 NULL
 
 # methods package needed if run by Rscript
-# but seems to need library(methods) in the file.R too (for older version of Matrix)
+# but seems to need library(methods) in the file.R too (at least for the older version of Matrix)
+# import sp for spatial data and Matrix for sparse matrix used in observation opeerator
 #' @import sp Matrix
 NULL
 
@@ -35,10 +37,7 @@ NULL
 #    dyn.load("kriegecode.so")
 #}
 
-#require(Matrix) # for sparseMatrix
-#require(sp) # for spatial objects
 
-## to replace gstat kriege command for prediction over a grid
 #' Calculate Kriging predictions
 #' 
 #' @param trend_model formula to build the regression matrices
@@ -58,8 +57,7 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
                        lsm=NULL,lsmy=NULL, alt=NULL, alty=NULL, altlen=200.0,
                        bg=NULL, variable="temperature" ) {
   ## build input matrices
-  ## assumes data and bg have "longitude", "latitude", "temperature", and data and grid also trend model variables
-  
+
   trend_model_noy <- trend_model[-2]
   grid.variables <- all.vars(trend_model_noy)
   
@@ -69,7 +67,6 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
     s<-sp::summary(grid)$grid
     elon<-seq.int(from=s[1,1],by=s[1,2],len=s[1,3])
     elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
-#    H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
     H<-f90Hmat(elon,elat,coordinates(data))
     mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
   }
@@ -87,7 +84,7 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   cy <- as.matrix(coordinates(data))
   cgrid <- as.matrix(coordinates(grid))[igrid,]
   
-  ## Kriging by fortran code
+  ## Kriging by fortran code (now 3 separate code for different situations)
   t1<-proc.time()
   if (is.null(lsm)) {
     ypred<-f90kriege(X,y,B,predgrid,cy,cgrid,cov.pars)
@@ -105,13 +102,11 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
     }
     B <- fixseapointsincov(B,lsmy)
     # altitude based covariance matrix as in f90 code !!
-#    B <- B*exp(-as.matrix((dist(alty)/altlen)^2))
     B <- B*exp(-as.matrix((dist(alty)/altlen)))
     ypred<-f90kriege3(X,y,B,predgrid,lsm,lsmy,alt,alty,cy,cgrid,c(cov.pars[1],cov.pars[2],altlen))
   }
   t2<-proc.time()-t1
   
-#  ypredgrid<-double(length=nrow(grid))*NA
   ypredgrid<-double(length=length(igrid))*NA
   ypredgrid[igrid]<-ypred
   
@@ -121,7 +116,6 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   else
     ypred2<-data.frame(temperature=ypredgrid+bg@data[,variable])
   ## change the name according to the ´variable´
-# names(ypred2) <- variable
   names(ypred2) <- c(variable)
   coordinates(ypred2)<-coordinates(grid)
   proj4string(ypred2)<-proj4string(grid)
@@ -160,8 +154,7 @@ fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
     mu <- grid2points_lapserate(bg,data,modelgrid = grid,
                                 LapseRate = LapseRate,
                                 method=method)
-#    mu <- grid2points_test2(bg,data)
-    
+
   }
   else {
     mu <- 0.0
@@ -229,8 +222,6 @@ fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
     
   return(ypred2)
 }
-
-
 
 
 ## cover function for fortran kriging code in kriegecode.f90

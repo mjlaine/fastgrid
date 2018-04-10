@@ -1,8 +1,7 @@
-# gridding by a linear hierarchical model
-# using sparse linear solver
+# gridding by a linear hierarchical model using sparse linear solver
+# this is still under development and does not work well (as intended) for large domains
 
-
-# this uses sparse Cholesky
+# this one uses sparse Cholesky
 #' @export 
 linearinterpolationtogrid2 <- function(obspoints, modelgrid, sigobs=1.0, sigmodel=1.0, lam=c(1,1), d=2,
                    priormodel = 0.0, method = 'bilinear', variable = 'temperature') {

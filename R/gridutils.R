@@ -328,10 +328,11 @@ points2grid0 <- function(pointdata,modelgrid,variable="y",cov.pars) {
   return(Xgrid)
 }
 
+# can not use points2grid as it is already used by sp:points2grid
 
 #' Grid point data to spatial grid
 #' 
-#' This is an easy to use version of \link{fastkriege}
+#' This is an easier to use version of \link{fastkriege}
 #' 
 #' @param y data matrix of point data to be gridded, alternative to giving \code{variable}
 #' @param pointdata SpatialPointsDataFrame of the spatial points

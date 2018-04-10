@@ -1,6 +1,6 @@
 ---
 title: "Gridding point data by Kriging"
-author: "Marko Laine"
+author: "Marko Laine FMI"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -9,51 +9,11 @@ vignette: >
   \VignetteEncoding{UTF-8}
 ---
 
-DUMMY text, still, sorry.
-
-This document describes grdding of point observations to a regular grid. The code is intended to grid station temperatures (or other meterological variables) to a grid. The code can use a prior backgroud model. The code was done as the default Kriging in the pakage gstat was so slow.
-
-
-## Examples
-
-```{r, eval=FALSE, include=TRUE}
-library(MOSfieldutils)
-stationsfile<- system.file("extdata","201706061910_MOS_2017060612_6_2017060618.csv",package="MOSfieldutils")
-ECMWFbgfile <- system.file("extdata","1715712000006.nc",package="MOSfieldutils")
-mtitle <- '2016-05-17 12Z 06h forecast'
-stations <- MOSstation_csv_load(stationsfile)
-ECMWFbg <- ECMWF_bg_load(ECMWFbgfile)
-mosfield <- MOSgrid(stations = stations, bgfield = ECMWFbg)
-```
-
-
-```{r, fig.show='hold', eval=FALSE, include=TRUE}
-MOS_plot_field(mosfield, stations = stations, layer = "diff", main = mtitle)
-```
-
-
-## Code details
-
-The essential parts of the fortran code is the following
-
-```fortran
-  call chol(b, nobs)               ! replace B with L = chol(B,’lower')
-  call ldivide(b,x, nobs, npar)    ! replace x with L\x
-  call ldivide(b,y, nobs, 1)       ! replace y with L\y
-  call lsq(x,y,beta, nobs, npar)   ! beta = x\y
-  call resid(x,y,beta, nobs, npar) ! y = y - x*beta
-  call ltdivide(b,y, nobs, 1)      ! y = L'\y
-  ! calculate prediction over grid
-  do i=1, ngrid
-     x1 = grid(i,:)
-     call corrdist(cgrid(i,:),cy,b1, nobs, covpars)
-     ypred(i) = matmul(x1,beta) + matmul(b1,y)
-  end do
-```
+This document describes gridding of point observations to a regular grid. The code is mainly intended for interpolating station temperatures (or other meterological variables). The code can use a prior backgroud model field.
 
 ## Mathematical background 
 
-Basically, the gridding can be described as
+The gridding can be described as an hierarchical linear model
 
 \begin{equation}
   \label{equ:hiermodel}
@@ -64,11 +24,83 @@ Basically, the gridding can be described as
   \end{split}
 \end{equation}
 
+$B$ is the spatial covariance matrix.
+
+The Kriging prediction equation gives estimates for
+
+\begin{equation}
+  y_\mathrm{pred}   = x_\mathrm{pred}\widehat{\beta} + b B^{-1} (y - X\widehat{\beta})
+\end{equation}
+
+$b$ is a row vector correlations between the new location and the observation locations.
+
+## Code details
+
+The essential parts of the fortran code is the following
+
+```fortran
+  call chol(b, nobs)               ! replace B with L = chol(B,’lower')
+  call ldivide(b,x, nobs, npar)    ! replace x with inv(L)*x
+  call ldivide(b,y, nobs, 1)       ! replace y with inv(L)*y
+  call lsq(x,y,beta, nobs, npar)   ! solve x from y=x*beta
+  call resid(x,y,beta, nobs, npar) ! y = y - x*beta
+  call ltdivide(b,y, nobs, 1)      ! y = inv(L')*y
+  ! calculate prediction over grid
+  do i=1, ngrid
+     x1 = grid(i,:)
+     call corrdist(cgrid(i,:),cy,b1, nobs, covpars)
+     ypred(i) = matmul(x1,beta) + matmul(b1,y)
+  end do
+```
+
+
+
+## Examples
+
+
+```{r}
+library('fastgrid')
+lonmin <- 19.0; lonmax <- 33.0; latmin <- 59.0; latmax <- 71.5
+londx <- 0.4; latdx <- 0.1
+modelgrid <- makelonlatgrid(lonmin=lonmin,lonmax=lonmax,latmin=latmin,latmax=latmax,londx=londx,latdx=latdx)
+```
+
+Some random points in the defined region as a SpatialPointsDataFrame
+```{r}
+nobs <- 50
+obs <- data.frame(longitude=runif(nobs,lonmin,lonmax),
+                  latitude=runif(nobs,latmin,latmax),
+                  temperature=rnorm(nobs,mean=10,sd=4))
+sp::coordinates(obs) <- c('longitude','latitude')
+```
+
+Interpolate to model grid by Kriging.
+```{r}
+cov.pars <- c(1.0^2,1.0,0.1) # sigma2, correlation length, nugget
+t0<-proc.time()
+obs.gridded <- pointgridding(pointdata=obs,modelgrid=modelgrid,cov.pars=cov.pars,variable="temperature")
+print(t1<-proc.time()-t0)
+```
+```{r}
+library(sp)
+library(maps)
+library(maptools)
+library(ggplot2)
+spplot(obs.gridded)
+
+```
+
+```{r fig.height=5}
+MOSplotting::MOS_plot_field(obs.gridded,stations=obs,cmin=0,cmax=20,main='kriging interpolation')
+
+```
+
+
 
 ## Figures
 
 ```{r, fig.show='hold',fig.cap="Caption",eval=FALSE}
-MOS_plot_field(out)
+
 ```
 
 
