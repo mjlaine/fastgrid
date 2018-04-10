@@ -1,0 +1,21 @@
+# This is gitbub README file
+* R and fortran code for gridding point observations
+
+Fastgrid is a R package for gridding point data to an uniform grid. It
+uses Gaussian process regression (aka Kriging) with exponential
+covariance function. It only calculates point predictions (no
+uncertainties) and tries to be as efficient as possible. The loop over
+grid points is done in Fortran using OpenMP palallelization. Interpolation
+to 1600 x 400 grid takes about 15 seconds.
+
+In the example there are some references to plotting the results by some code that I
+have not yet provided, sorry.
+
+Marko Laine, marko.laine@fmi.fi
+
+#+DESCRIPTION: fastgrid R code readme file
+#+LANGUAGE: en
+#+TITLE: 
+#+OPTIONS: H:3 \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
+#+OPTIONS: TeX:t LaTeX:t skip:nil d:nil todo:t pri:nil tags:not-in-toc
+#+OPTIONS: title:nil num:nil toc:nil ^:{} creator:nil author:nil
