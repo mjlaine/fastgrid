@@ -152,7 +152,7 @@ fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
 #    mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
     
     mu <- grid2points_lapserate(bg,data,modelgrid = grid,
-                                LapseRate = LapseRate,
+                                LapseRate = LapseRate, variable=variable,
                                 method=method)
 
   }
