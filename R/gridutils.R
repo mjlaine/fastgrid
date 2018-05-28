@@ -232,6 +232,7 @@ grid2points_lapserate <- function(grid,data,variable="temperature",
                                   LapseRate=MOSget('LapseRate'),
                                   modelgrid=NULL, method='bilinear') {
   grid.grid <- sp::getGridTopology(grid)
+  # coordinate names fixed here!!
   mlon<-sp::coordinatevalues(grid.grid)$longitude
   mlat<-sp::coordinatevalues(grid.grid)$latitude
   
@@ -245,11 +246,13 @@ grid2points_lapserate <- function(grid,data,variable="temperature",
     modelgrid <- MOSfieldutils::MOSgriddata()
   }
   
-  #  grid.alt <- grid$altitude
-  grid.alt <- modelgrid$elevation
   grid.y <- as.matrix(grid@data[,variable])
   data.coord <- sp::coordinates(data)
-  data.alt <- data$elevation
+  if (LapseRate != 0.0) {
+    #  grid.alt <- grid$elevation
+    grid.alt <- modelgrid$elevation
+    data.alt <- data$elevation
+  }
   
   nobs <- nrow(data)
   y <- rep(0.0,nobs)
@@ -267,10 +270,17 @@ grid2points_lapserate <- function(grid,data,variable="temperature",
     I2 <- sub2ind(c(nlon,nlat),i2,j1)
     I3 <- sub2ind(c(nlon,nlat),i1,j2)
     I4 <- sub2ind(c(nlon,nlat),i2,j2)
-    T1 <- grid.y[I1] - LapseRate*(data.alt[i]-grid.alt[I1])/1000.0
-    T2 <- grid.y[I2] - LapseRate*(data.alt[i]-grid.alt[I2])/1000.0
-    T3 <- grid.y[I3] - LapseRate*(data.alt[i]-grid.alt[I3])/1000.0
-    T4 <- grid.y[I4] - LapseRate*(data.alt[i]-grid.alt[I4])/1000.0
+    if (LapseRate != 0.0) {
+      T1 <- grid.y[I1] - LapseRate*(data.alt[i]-grid.alt[I1])/1000.0
+      T2 <- grid.y[I2] - LapseRate*(data.alt[i]-grid.alt[I2])/1000.0
+      T3 <- grid.y[I3] - LapseRate*(data.alt[i]-grid.alt[I3])/1000.0
+      T4 <- grid.y[I4] - LapseRate*(data.alt[i]-grid.alt[I4])/1000.0
+    } else {
+      T1 <- grid.y[I1]
+      T2 <- grid.y[I2]
+      T3 <- grid.y[I3]
+      T4 <- grid.y[I4]
+    }
     if (method=='bilinear') {
       y[i] <- intcoef(olon,olat,mlon[i1],mlon[i2],mlat[j1],mlat[j2])%*%as.matrix(c(T1,T2,T3,T4),nrow=4)
     } else if (method =='nearest') {
