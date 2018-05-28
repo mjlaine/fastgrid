@@ -3,7 +3,7 @@
 export(Hmat)
 export(f90Hmat)
 export(fastkriege)
-export(fastkriege_dev)
+export(fastkriege_old)
 export(grid2points)
 export(grid2points_lapserate)
 export(gridlat)

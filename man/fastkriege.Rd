@@ -6,7 +6,7 @@
 \usage{
 fastkriege(trend_model = temperature ~ -1, data, grid, cov.pars, lsm = NULL,
   lsmy = NULL, alt = NULL, alty = NULL, altlen = 200, bg = NULL,
-  variable = "temperature")
+  variable = "temperature", LapseRate = 0, method = "bilinear")
 }
 \arguments{
 \item{trend_model}{formula to build the regression matrices}

@@ -38,22 +38,8 @@ NULL
 #}
 
 
-#' Calculate Kriging predictions
-#' 
-#' @param trend_model formula to build the regression matrices
-#' @param data data containing station temperatures as SpatialPoints
-#' @param grid definition of model grid, must contain longitude, latitude coordinates and variables used in trend_model
-#' @param cov.pars c(sigmasq,phi,tausq)
-#' @param bg optional background field of the same dimensions as the grid
-#' @param lsm,lsmy land sea masks for grid and data
-#' @param alt,alty altitude information for the grid and data
-#' @param altlen range parameter for altitude (meters)
-#' @param variable the name of the variable to be gridded, default "temperature"
-#' 
-#' @description Now assumes that the coordinate names are \code{longitude} and \code{latitude}.
-#'
 #' @export
-fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
+fastkriege_old <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
                        lsm=NULL,lsmy=NULL, alt=NULL, alty=NULL, altlen=200.0,
                        bg=NULL, variable="temperature" ) {
   ## build input matrices
@@ -131,8 +117,22 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
   return(ypred2)
 }
 
+#' Calculate Kriging predictions
+#' 
+#' @param trend_model formula to build the regression matrices
+#' @param data data containing station temperatures as SpatialPoints
+#' @param grid definition of model grid, must contain longitude, latitude coordinates and variables used in trend_model
+#' @param cov.pars c(sigmasq,phi,tausq)
+#' @param bg optional background field of the same dimensions as the grid
+#' @param lsm,lsmy land sea masks for grid and data
+#' @param alt,alty altitude information for the grid and data
+#' @param altlen range parameter for altitude (meters)
+#' @param variable the name of the variable to be gridded, default "temperature"
+#' 
+#' @description Now assumes that the coordinate names are \code{longitude} and \code{latitude}.
+#'
 #' @export
-fastkriege_dev <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
+fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars, 
                        lsm=NULL,lsmy=NULL, alt=NULL, alty=NULL, altlen=200.0,
                        bg=NULL, variable="temperature", LapseRate = 0.0,
                        method='bilinear') {
