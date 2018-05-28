@@ -18,7 +18,7 @@ pointgridding(y = NULL, pointdata, modelgrid, variable = "y", cov.pars)
 \item{cov.par}{Kriging parameters, sigma^2, phi, tau^2.}
 }
 \description{
-This is an easy to use version of \link{fastkriege}
+This is an easier to use version of \link{fastkriege}
 }
 \examples{
  
