@@ -5,7 +5,7 @@ Fastgrid is a R package for gridding point data to an uniform grid. It
 uses Gaussian process regression (aka Kriging) with exponential
 covariance function. It only calculates point predictions (no
 uncertainties) and tries to be as efficient as possible. The loop over
-grid points is done in Fortran using OpenMP palallelization. Interpolation
+grid points is done in Fortran using OpenMP parallelization. Interpolation
 to 1600 x 400 grid takes about 15 seconds.
 
 In the example there are some references to plotting the results by some code that I
