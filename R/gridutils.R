@@ -330,11 +330,13 @@ makelonlatgrid <- function(lonmin, lonmax, latmin, latmax, londx=1.0, latdx=1.0,
 
 
 # utility to points2grid
-points2grid0 <- function(pointdata,modelgrid,variable="y",cov.pars) {
+points2grid0 <- function(pointdata,modelgrid,variable="y",
+                         trend_model=NULL,bg=NULL,cov.pars) {
+  if (is.null(trend_model)) trend_model <- as.formula(paste(variable,'~1'))
   pointdata <- pointdata[complete.cases(pointdata@data[,variable]),]
   if (length(pointdata)<4)  stop('too few points')
-  Xgrid <- fastgrid::fastkriege(trend_model=as.formula(paste(variable,'~-1')), data=pointdata, grid=modelgrid, cov.pars=cov.pars,
-                                bg=NULL,lsm=NULL,lsmy=NULL,alt=NULL,alty=NULL,variable=variable)
+  Xgrid <- fastgrid::fastkriege(trend_model=trend_model, data=pointdata, grid=modelgrid, cov.pars=cov.pars,
+                                bg=bg,lsm=NULL,lsmy=NULL,alt=NULL,alty=NULL,variable=variable)
   return(Xgrid)
 }
 
@@ -364,22 +366,30 @@ points2grid0 <- function(pointdata,modelgrid,variable="y",cov.pars) {
 #' MOSplotting::MOS_plot_field(out,stations=obs,cmin=0,cmax=20)
 #' 
 #' @export
-pointgridding <- function(y=NULL,pointdata,modelgrid,variable="y",cov.pars) {
+pointgridding <- function(y=NULL,pointdata,modelgrid,variable="y",trend_model=NULL,
+                          priorfield=FALSE,cov.pars) {
   
-  if (is.null(y)) {
-    return(points2grid0(pointdata=pointdata, modelgrid = modelgrid, variable=variable, cov.pars = cov.pars))
+  if (priorfield) {
+    bg <- modelgrid
+  } else {
+    bg <- NULL
   }
+  if (is.null(y)) {
+    return(points2grid0(pointdata=pointdata, modelgrid = modelgrid, bg=bg, variable=variable, trend_model, cov.pars = cov.pars))
+  }
+  
+  if (is.null(trend_model)) trend_model <- as.formula(paste(variable,'~1'))
   
   # else use each column in matrix y
   y <- as.matrix(y)
   pointdata$y <- y[,1]
-  out <- points2grid0(pointdata = pointdata, modelgrid = modelgrid, variable="y", cov.pars = cov.pars)
+  out <- points2grid0(pointdata = pointdata, modelgrid = modelgrid, bg=bg, variable="y",trend_model, cov.pars = cov.pars)
   
   l <- dim(y)[2]
   if (l>1) {
     for (i in 2:l) {
       pointdata$y <- y[,i]
-      out.1 <- points2grid0(pointdata = pointdata, modelgrid = modelgrid, variable="y", cov.pars = cov.pars)
+      out.1 <- points2grid0(pointdata = pointdata, modelgrid = modelgrid, bg=bg, variable="y", trend_model, cov.pars = cov.pars)
       ii <- dim(out@data)[2]+1
       out@data[,ii] <- out.1@data[,"y"]
     }
