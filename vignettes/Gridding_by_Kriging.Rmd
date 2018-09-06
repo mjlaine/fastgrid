@@ -9,12 +9,61 @@ vignette: >
   \VignetteEncoding{UTF-8}
 ---
 
-This document describes gridding of point observations to a regular grid. The code is mainly intended for interpolating station temperatures (or other meterological variables). The code can use a prior backgroud model field.
+This document describes gridding of point observations to a regular grid. The code is mainly intended for interpolating station temperatures (or other meterological variables). The code can use a prior background model field. *This text needs some polishing, still.*
+
+## Examples
+
+Load the fastgrid library and generate a model grid by utility function `makelatlongrid`. The grid can be either `SpatialGrid` or `SpatialGridDataFrame`. The latter can be used if the grid trend model uses some auxiliary variables, such as elevation. In this case these variables have to exist in both the observation data and in the background grid. Here we define a grid over Finland with 0.1° resolution in longitude direction and 0.2° in latitude direction.
+
+```{r}
+library('fastgrid')
+lonmin <- 19.0; lonmax <- 33.0; latmin <- 59.0; latmax <- 71.5
+londx <- 0.2; latdx <- 0.1
+modelgrid <- makelonlatgrid(lonmin=lonmin,lonmax=lonmax,latmin=latmin,latmax=latmax,
+                            londx=londx,latdx=latdx)
+```
+
+Generate some random points in the defined region as a `SpatialPointsDataFrame` to be used as observation to be gridded. The names for the coordinates are `longitude` and `latitude`.
+```{r}
+nobs <- 50
+obs <- data.frame(longitude=runif(nobs,lonmin,lonmax),
+                  latitude=runif(nobs,latmin,latmax),
+                  temperature=rnorm(nobs,mean=20,sd=2))
+sp::coordinates(obs) <- c('longitude','latitude')
+```
+
+Interpolate to model grid by Kriging. The function `pointgridding` is in the package `fastgrid`. The default trend model given here fits the mean field. It could use coordinate information and auxiliary variables defined in both observations and grid.
+```{r}
+cov.pars <- c(2.0^2,1.5,0.1) # sigma2, correlation length, nugget
+trend_model <- temperature ~ 1
+t0<-proc.time()
+obs.gridded <- pointgridding(pointdata=obs,modelgrid=modelgrid,
+                             trend_model=trend_model,
+                             cov.pars=cov.pars,
+                             variable="temperature")
+print(t1<-proc.time()-t0)
+```
+
+The output will be a `sp::SpatialGridDataFrame`. It can be plotted by `sspplot`.
+
+```{r}
+library(sp)
+#library(maps)
+#library(maptools)
+#library(ggplot2)
+
+spplot(obs.gridded)
+```
+
+In another package MOSplotting there is a function MOS_plot_field.
+
+```{r fig.height=5}
+MOSplotting::MOS_plot_field(obs.gridded,stations=obs,cmin=10,cmax=30,main='kriging interpolation')
+```
 
 ## Mathematical background 
 
-The gridding can be described as an hierarchical linear model
-
+The gridding by Kriging can be described as an hierarchical linear model:
 \begin{equation}
   \label{equ:hiermodel}
   \begin{split}
@@ -24,15 +73,15 @@ The gridding can be described as an hierarchical linear model
   \end{split}
 \end{equation}
 
-$B$ is the spatial covariance matrix.
+Here, $\eta$ is the model grid as a vector and described as a spatial random field to be estimated. Its correlation structure is defined by a spatial covariance matrix $\Sigma_\eta$ (called $B$ as the *background covariance*) in the code). The covariance is defined by a covariance function, which is assumed to have exponential form depending on the distance of points.
 
-The Kriging prediction equation gives estimates for
-
+The Kriging prediction equation gives estimates for the variable $y$ at each grid location,  
 \begin{equation}
-  y_\mathrm{pred}   = x_\mathrm{pred}\widehat{\beta} + b B^{-1} (y - X\widehat{\beta})
+  y_\mathrm{grid} = x_\mathrm{grid}\widehat{\beta} + b \Sigma_\eta^{-1} (y - X\widehat{\beta}),
 \end{equation}
+where $b$ is a row vector of correlations between the grid location and all the observation locations and $\widehat{\beta}$ is the standard least squares estimate of ${\beta}$. The code does not calculate prediction uncertainty.
 
-$b$ is a row vector correlations between the new location and the observation locations.
+Matrix $H$ is the observation operator, which maps the model grid to observation locations. A bilinear interpolation is assumed in the code. The $\beta$ parameters are estimated using a trend model. The default trend model fits only intercept, i.e. the observation mean is returned for locations with no observation near. Currently, uniform prior for the trend model parameters is assumed. A prior mean field can be used by setting `trend_model = y~-1` and substracting the mean from the observation before the fit `obs <- obs - H%*%bg` and then addind the prior field back to the results after fit.
 
 ## Code details
 
@@ -52,49 +101,6 @@ The essential parts of the fortran code is the following
      ypred(i) = matmul(x1,beta) + matmul(b1,y)
   end do
 ```
-
-
-
-## Examples
-
-
-```{r}
-library('fastgrid')
-lonmin <- 19.0; lonmax <- 33.0; latmin <- 59.0; latmax <- 71.5
-londx <- 0.4; latdx <- 0.1
-modelgrid <- makelonlatgrid(lonmin=lonmin,lonmax=lonmax,latmin=latmin,latmax=latmax,londx=londx,latdx=latdx)
-```
-
-Some random points in the defined region as a SpatialPointsDataFrame
-```{r}
-nobs <- 50
-obs <- data.frame(longitude=runif(nobs,lonmin,lonmax),
-                  latitude=runif(nobs,latmin,latmax),
-                  temperature=rnorm(nobs,mean=10,sd=4))
-sp::coordinates(obs) <- c('longitude','latitude')
-```
-
-Interpolate to model grid by Kriging.
-```{r}
-cov.pars <- c(1.0^2,1.0,0.1) # sigma2, correlation length, nugget
-t0<-proc.time()
-obs.gridded <- pointgridding(pointdata=obs,modelgrid=modelgrid,cov.pars=cov.pars,variable="temperature")
-print(t1<-proc.time()-t0)
-```
-```{r}
-library(sp)
-library(maps)
-library(maptools)
-library(ggplot2)
-spplot(obs.gridded)
-
-```
-
-```{r fig.height=5}
-MOSplotting::MOS_plot_field(obs.gridded,stations=obs,cmin=0,cmax=20,main='kriging interpolation')
-
-```
-
 
 
 ## Figures
