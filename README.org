@@ -1,4 +1,4 @@
-# This is gitbub README file
+# This is github README file
 * R and fortran code for gridding point observations
 
 Fastgrid is a R package for gridding point data to an uniform grid. It
