@@ -72,7 +72,7 @@ Hmat <- function(mlat,mlon,obs,method='bilinear') {
     if (method=='bilinear') {
       H[i,c(I1,I2,I3,I4)] <- intcoef(olat,olon,mlat[i1],mlat[i2],mlon[j1],mlon[j2])
     } else if (method =='nearest') {
-      H[i,c(I1,I2,I3,I4)] <- intcoef.nearest(olon,olat,mlon[i1],mlon[i2],mlat[j1],mlat[j2])
+      H[i,c(I1,I2,I3,I4)] <- intcoef.nearest(olat,olon,mlat[i1],mlat[i2],mlon[j1],mlon[j2])
     } else {
       stop('unknown methods in Hmat')
     }
