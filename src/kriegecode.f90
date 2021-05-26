@@ -190,40 +190,39 @@ subroutine obsoper(mlat,mlon,obs,nlat,nlon,nobs,iind,jind,h)
   integer, intent(out) :: iind(4*nobs), jind(4*nobs)
   real(kind=dbl), intent(out) :: h(4*nobs)
 
-  integer :: nmod, i, ii, j, jj, i1i2(2),j1j2(2), i1, i2, j1, j2, ii4(4)
+  integer :: nmod, i, i1i2(2), j1j2(2), i1, i2, j1, j2, ii4(4)
   real(kind=dbl) :: olat, olon, h4(4)
+  !! testing
+  integer ::  ii2(4, nobs), jj2(4, nobs)
+  real(kind=dbl) :: h2(4, nobs)
 
   nmod = nlat*nlon
 !  # sparse matrix
 !  H<-Matrix(0,nrow=nobs,ncol=nmod,sparse=TRUE)
 
-  j = 1
-  ! how to do this with OMP (loop over j?)
-  !  xx $OMP PARALLEL DO PRIVATE(i,olat,olon,i1i2,j1j2,i1,i2,j1,j2,II4,h4,ii,jj)
+  !$OMP PARALLEL DO PRIVATE(i,olat,olon,i1i2,j1j2,i1,i2,j1,j2,II4,h4)
   do i = 1,nobs
-    olat = obs(i,1)
-    olon = obs(i,2)
-    i1i2 = lookup(mlat,olat)
-    j1j2 = lookup(mlon,olon)
-    i1 = i1i2(1)
-    i2 = i1i2(2)
-    j1 = j1j2(1)
-    j2 = j1j2(2)
-    II4(1) = sub2ind(nlat,i1,j1)
-    II4(2) = sub2ind(nlat,i2,j1)
-    II4(3) = sub2ind(nlat,i1,j2)
-    II4(4) = sub2ind(nlat,i2,j2)
-    h4 = intcoef(olat,olon,mlat(i1),mlat(i2),mlon(j1),mlon(j2))
-    jj = j
-    do ii=1,4
-       h(jj) = h4(ii)
-       iind(jj) = i
-       jind(jj) = II4(ii)
-       jj = jj + 1
-    end do
-    j = j + 4
- end do
- !  xx $OMP END PARALLEL DO
+     olat = obs(i,1)
+     olon = obs(i,2)
+     i1i2 = lookup(mlat,olat)
+     j1j2 = lookup(mlon,olon)
+     i1 = i1i2(1)
+     i2 = i1i2(2)
+     j1 = j1j2(1)
+     j2 = j1j2(2)
+     II4(1) = sub2ind(nlat,i1,j1)
+     II4(2) = sub2ind(nlat,i2,j1)
+     II4(3) = sub2ind(nlat,i1,j2)
+     II4(4) = sub2ind(nlat,i2,j2)
+     h4 = intcoef(olat,olon,mlat(i1),mlat(i2),mlon(j1),mlon(j2))
+     h2(:, i) = h4
+     ii2(:, i) = i
+     jj2(:, i) = II4
+  end do
+  !$OMP END PARALLEL DO
+  h = reshape(h2, (/4*nobs/)) 
+  iind = reshape(ii2, (/4*nobs/))
+  jind = reshape(jj2, (/4*nobs/))
 
 contains
   
