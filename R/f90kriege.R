@@ -150,11 +150,14 @@ fastkriege <- function(trend_model = temperature ~ -1, data, grid, cov.pars,
 #    elat<-seq.int(from=s[2,1]+s[2,2]*(s[2,3]-1) ,by=-s[2,2],len=s[2,3])
 #    H<-f90Hmat(elon,elat,cbind(data$longitude,data$latitude))
 #    mu <- as.matrix(H%*%as.matrix(bg@data[,variable]))
-    
-    mu <- grid2points_lapserate(bg,data,modelgrid = grid,
-                                LapseRate = LapseRate, variable=variable,
-                                method=method)
 
+    if (LapseRate == 0.0) {
+      mu <- grid2points(bg, data, variable=variable, method=method)
+    } else {
+      mu <- grid2points_lapserate(bg,data,modelgrid = grid,
+                                  LapseRate = LapseRate, variable=variable,
+                                  method=method)
+    }
   }
   else {
     mu <- 0.0
