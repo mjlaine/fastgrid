@@ -3,7 +3,6 @@
 \docType{package}
 \name{fastgrid}
 \alias{fastgrid}
-\alias{fastgrid-package}
 \title{fastgrid: faster Kriging by some f90 code}
 \description{
 These are some functions here to help with gridding point data to a regular grid.

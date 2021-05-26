@@ -190,7 +190,7 @@ subroutine obsoper(mlat,mlon,obs,nlat,nlon,nobs,iind,jind,h)
   integer, intent(out) :: iind(4*nobs), jind(4*nobs)
   real(kind=dbl), intent(out) :: h(4*nobs)
 
-  integer :: nmod, i, ii, j, i1i2(2),j1j2(2), i1,i2,j1,j2, ii4(4)
+  integer :: nmod, i, ii, j, jj, i1i2(2),j1j2(2), i1, i2, j1, j2, ii4(4)
   real(kind=dbl) :: olat, olon, h4(4)
 
   nmod = nlat*nlon
@@ -198,6 +198,8 @@ subroutine obsoper(mlat,mlon,obs,nlat,nlon,nobs,iind,jind,h)
 !  H<-Matrix(0,nrow=nobs,ncol=nmod,sparse=TRUE)
 
   j = 1
+  ! how to do this with OMP (loop over j?)
+  !  xx $OMP PARALLEL DO PRIVATE(i,olat,olon,i1i2,j1j2,i1,i2,j1,j2,II4,h4,ii,jj)
   do i = 1,nobs
     olat = obs(i,1)
     olon = obs(i,2)
@@ -212,14 +214,17 @@ subroutine obsoper(mlat,mlon,obs,nlat,nlon,nobs,iind,jind,h)
     II4(3) = sub2ind(nlat,i1,j2)
     II4(4) = sub2ind(nlat,i2,j2)
     h4 = intcoef(olat,olon,mlat(i1),mlat(i2),mlon(j1),mlon(j2))
+    jj = j
     do ii=1,4
-       h(j) = h4(ii)
-       iind(j) = i
-       jind(j) = II4(ii)
-       j = j + 1
+       h(jj) = h4(ii)
+       iind(jj) = i
+       jind(jj) = II4(ii)
+       jj = jj + 1
     end do
+    j = j + 4
  end do
- 
+ !  xx $OMP END PARALLEL DO
+
 contains
   
   function intcoef(x1,x2,x1l,x1u,x2l,x2u) result(h)
@@ -234,7 +239,7 @@ contains
     x22 = (x2-x2l)/(x2u-x2l)
     h = reshape(matmul(reshape((/1.0d0,x11,x22,x11*x22/),(/1,4/)),X),(/4/))
   end function intcoef
-
+  
   function sub2ind(nrc,irow,icol) result(i)
     implicit none
     integer, intent(in) :: nrc, irow, icol
@@ -278,3 +283,126 @@ contains
   end function lookup
 
 end subroutine obsoper
+
+!!! Nearest neighbour version
+!!! should combine with bilinear, now separate
+subroutine obsopernn(mlat,mlon,obs,nlat,nlon,nobs,iind,jind,h)
+  implicit none
+
+  integer, parameter :: Double = selected_real_kind(15)
+  integer, parameter :: dbl=Double
+
+  integer, intent(in) :: nlat, nlon, nobs
+  real(kind=dbl), intent(in) :: mlat(nlat), mlon(nlon), obs(nobs,2)
+
+  integer, intent(out) :: iind(nobs), jind(nobs)
+  real(kind=dbl), intent(out) :: h(nobs)
+
+  integer :: nmod, i, ii, i1i2(2),j1j2(2), i1, i2, j1, j2, ii4(4)
+  real(kind=dbl) :: olat, olon, h4(4)
+
+  nmod = nlat*nlon
+!  # sparse matrix
+!  H<-Matrix(0,nrow=nobs,ncol=nmod,sparse=TRUE)
+
+  !j = 1
+  ! how to do this with OMP (loop over j?)
+  !  xx $OMP PARALLEL DO PRIVATE(i,olat,olon,i1i2,j1j2,i1,i2,j1,j2,II4,h4,ii)
+  do i = 1,nobs
+    olat = obs(i,1)
+    olon = obs(i,2)
+    i1i2 = lookup(mlat,olat)
+    j1j2 = lookup(mlon,olon)
+    i1 = i1i2(1)
+    i2 = i1i2(2)
+    j1 = j1j2(1)
+    j2 = j1j2(2)
+    II4(1) = sub2ind(nlat,i1,j1)
+    II4(2) = sub2ind(nlat,i2,j1)
+    II4(3) = sub2ind(nlat,i1,j2)
+    II4(4) = sub2ind(nlat,i2,j2)
+    h4 = intcoefnn(olat,olon,mlat(i1),mlat(i2),mlon(j1),mlon(j2))
+    do ii=1,4
+       if (h4(ii) > 0) then
+          h(i) = h4(ii)
+          iind(i) = i
+          jind(i) = II4(ii)
+          !j = j + 1
+          exit
+       end if
+    end do
+ end do
+ !  xx $OMP END PARALLEL DO
+
+contains
+  
+  function intcoef(x1,x2,x1l,x1u,x2l,x2u) result(h)
+    implicit none
+    real(kind=dbl), intent(in) :: x1,x2,x1l,x1u,x2l,x2u
+    real(kind=dbl) :: h(4)
+    
+    real(kind=dbl) :: X(4,4), x11, x22
+
+    X = reshape((/1.0,-1.0,-1.0,1.0,0.0,1.0,0.0,-1.0,0.0,0.0,1.0,-1.0,0.0,0.0,0.0,1.0/),(/4,4/))
+    x11 = (x1-x1l)/(x1u-x1l)
+    x22 = (x2-x2l)/(x2u-x2l)
+    h = reshape(matmul(reshape((/1.0d0,x11,x22,x11*x22/),(/1,4/)),X),(/4/))
+  end function intcoef
+
+  function intcoefnn(x1,x2,x1l,x1u,x2l,x2u) result(h)
+    implicit none
+    real(kind=dbl), intent(in) :: x1,x2,x1l,x1u,x2l,x2u
+    real(kind=dbl) :: h(4), xx(4)
+    integer :: i(1)
+    h = 0.0
+    xx(1) = (x1-x1l)**2 + (x2-x2l)**2
+    xx(2) = (x1-x1u)**2 + (x2-x2l)**2
+    xx(3) = (x1-x1l)**2 + (x2-x2u)**2
+    xx(4) = (x1-x1u)**2 + (x2-x2u)**2
+    i = minloc(xx)
+    h(i(1)) = 1.0    
+  end function intcoefnn
+  
+  function sub2ind(nrc,irow,icol) result(i)
+    implicit none
+    integer, intent(in) :: nrc, irow, icol
+    integer :: i
+    i = (icol-1)*nrc + irow
+  end function sub2ind
+
+  function lookup(x,xin) result(ii)
+    implicit none
+    real(kind=dbl) :: x(:), xin
+    integer :: ii(2)
+    integer :: n, il, iu, im
+
+    n = size(x,1)
+    !!  find location by bisection
+    if (x(2)-x(1)>0.0) then
+       il=1
+       iu=n
+       do while (iu-il>1)
+          im = floor((iu+il)/2.0)
+          if (xin>x(im)) then
+             il=im
+          else
+             iu=im
+          end if
+       end do
+       ii = (/il,iu/)
+    else
+       il=n
+       iu=1
+       do while (il-iu>1)
+          im = floor((iu+il)/2.0)
+          if (xin>x(im)) then
+             il=im
+          else
+             iu=im
+          end if
+       end do
+       ii = (/iu,il/)
+    end if
+  end function lookup
+
+end subroutine obsopernn

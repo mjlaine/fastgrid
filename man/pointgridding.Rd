@@ -4,8 +4,15 @@
 \alias{pointgridding}
 \title{Grid point data to spatial grid}
 \usage{
-pointgridding(y = NULL, pointdata, modelgrid, variable = "y",
-  trend_model = NULL, priorfield = FALSE, cov.pars)
+pointgridding(
+  y = NULL,
+  pointdata,
+  modelgrid,
+  variable = "y",
+  trend_model = NULL,
+  priorfield = FALSE,
+  cov.pars
+)
 }
 \arguments{
 \item{y}{data matrix of point data to be gridded, alternative to giving \code{variable}}

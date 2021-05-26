@@ -2,6 +2,7 @@
 
 export(Hmat)
 export(f90Hmat)
+export(f90Hmatnn)
 export(fastkriege)
 export(fastkriege_old)
 export(grid2points)
@@ -18,3 +19,4 @@ useDynLib(fastgrid,kriegepred)
 useDynLib(fastgrid,kriegepred2)
 useDynLib(fastgrid,kriegepred3)
 useDynLib(fastgrid,obsoper)
+useDynLib(fastgrid,obsopernn)

@@ -7,9 +7,14 @@
 \usage{
 grid2points(grid, data, variable = "temperature", method = "bilinear")
 
-grid2points_lapserate(grid, data, variable = "temperature",
-  LapseRate = MOSget("LapseRate"), modelgrid = NULL,
-  method = "bilinear")
+grid2points_lapserate(
+  grid,
+  data,
+  variable = "temperature",
+  LapseRate = MOSget("LapseRate"),
+  modelgrid = NULL,
+  method = "bilinear"
+)
 }
 \arguments{
 \item{grid}{SpatialGridDataFrame}

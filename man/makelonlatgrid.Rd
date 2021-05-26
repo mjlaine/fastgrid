@@ -4,8 +4,16 @@
 \alias{makelonlatgrid}
 \title{Generate uniform rectangular longitude-latitude-based SpatialGrid}
 \usage{
-makelonlatgrid(lonmin, lonmax, latmin, latmax, londx = 1, latdx = 1,
-  lon = NULL, lat = NULL)
+makelonlatgrid(
+  lonmin,
+  lonmax,
+  latmin,
+  latmax,
+  londx = 1,
+  latdx = 1,
+  lon = NULL,
+  lat = NULL
+)
 }
 \arguments{
 \item{lonmin, lonmax, londx}{longitude min, max and cell size, used if \code{lon} not given.}

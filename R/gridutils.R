@@ -14,7 +14,7 @@ f90Hmat <- function(mlat,mlon,obs) {
   if (nlat < 1 | nlon < 1 | ncol(obs) != 2 | !is.numeric(obs) )
     stop("input dimensions do not match")
   
-  f90h <- .Fortran("obsoper",                   
+  f90h <- .Fortran("obsoper",        
                    mlat=as.double(mlat),
                    mlon=as.double(mlon),
                    obs=as.double(obs),
@@ -29,6 +29,32 @@ f90Hmat <- function(mlat,mlon,obs) {
   return(Matrix::sparseMatrix(i=f90h$iind,j=f90h$jind,x=f90h$h,dims=c(nobs,nmod)))
 }
 
+
+#' @useDynLib fastgrid obsopernn
+#' @export
+f90Hmatnn <- function(mlat,mlon,obs) {
+  nobs <- nrow(obs)
+  nlat <- length(mlat)
+  nlon <- length(mlon)
+  nmod <- nlat*nlon
+  
+  if (nlat < 1 | nlon < 1 | ncol(obs) != 2 | !is.numeric(obs) )
+    stop("input dimensions do not match")
+  
+  f90h <- .Fortran("obsopernn",
+                   mlat=as.double(mlat),
+                   mlon=as.double(mlon),
+                   obs=as.double(obs),
+                   nlat=as.integer(nlat),
+                   nlon=as.integer(nlon),
+                   nobs=as.integer(nobs),
+                   iind=integer(length=nobs),
+                   jind=integer(length=nobs),
+                   h=double(length=nobs)
+  )
+  
+  return(Matrix::sparseMatrix(i=f90h$iind,j=f90h$jind,x=f90h$h,dims=c(nobs,nmod)))
+}
 
 
 ### Observation operator using bi-linear interpolation and bisection
@@ -71,7 +97,7 @@ Hmat <- function(mlat,mlon,obs,method='bilinear') {
 
     if (method=='bilinear') {
       H[i,c(I1,I2,I3,I4)] <- intcoef(olat,olon,mlat[i1],mlat[i2],mlon[j1],mlon[j2])
-    } else if (method =='nearest') {
+    } else if (method =='nearest' || method == 'simple') {
       H[i,c(I1,I2,I3,I4)] <- intcoef.nearest(olat,olon,mlat[i1],mlat[i2],mlon[j1],mlon[j2])
     } else {
       stop('unknown methods in Hmat')
@@ -215,8 +241,9 @@ grid2points<-function(grid,data,variable="temperature",method='bilinear'){
   if (method=='bilinear') {
     H<-f90Hmat(elon,elat,coordinates(data))
     y <- as.matrix(H%*%as.matrix(grid@data[,variable]))
-  } else if (method =='nearest') {
-    H<-Hmat(elon,elat,coordinates(data),method=method)
+  } else if (method =='nearest' || method =='simple') {
+    # H<-Hmat(elon,elat,coordinates(data),method=method)
+    H<-f90Hmatnn(elon,elat,coordinates(data))
     y <- as.matrix(H%*%as.matrix(grid@data[,variable]))
   } else {
     stop('unknown methods in interpolation')
@@ -283,7 +310,7 @@ grid2points_lapserate <- function(grid,data,variable="temperature",
     }
     if (method=='bilinear') {
       y[i] <- intcoef(olon,olat,mlon[i1],mlon[i2],mlat[j1],mlat[j2])%*%as.matrix(c(T1,T2,T3,T4),nrow=4)
-    } else if (method =='nearest') {
+    } else if (method =='nearest' || method == 'simple') {
       h4 <- intcoef.nearest(olon,olat,mlon[i1],mlon[i2],mlat[j1],mlat[j2])
       y[i] <- as.matrix(c(T1,T2,T3,T4),nrow=4)[which(h4==1)[1]]
     } else {
