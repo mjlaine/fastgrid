@@ -305,34 +305,31 @@ subroutine obsopernn(mlat,mlon,obs,nlat,nlon,nobs,iind,jind,h)
 !  # sparse matrix
 !  H<-Matrix(0,nrow=nobs,ncol=nmod,sparse=TRUE)
 
-  !j = 1
-  ! how to do this with OMP (loop over j?)
-  !  xx $OMP PARALLEL DO PRIVATE(i,olat,olon,i1i2,j1j2,i1,i2,j1,j2,II4,h4,ii)
+  !$OMP PARALLEL DO PRIVATE(i,olat,olon,i1i2,j1j2,i1,i2,j1,j2,II4,h4,ii)
   do i = 1,nobs
-    olat = obs(i,1)
-    olon = obs(i,2)
-    i1i2 = lookup(mlat,olat)
-    j1j2 = lookup(mlon,olon)
-    i1 = i1i2(1)
-    i2 = i1i2(2)
-    j1 = j1j2(1)
-    j2 = j1j2(2)
-    II4(1) = sub2ind(nlat,i1,j1)
-    II4(2) = sub2ind(nlat,i2,j1)
-    II4(3) = sub2ind(nlat,i1,j2)
-    II4(4) = sub2ind(nlat,i2,j2)
-    h4 = intcoefnn(olat,olon,mlat(i1),mlat(i2),mlon(j1),mlon(j2))
-    do ii=1,4
-       if (h4(ii) > 0) then
-          h(i) = h4(ii)
-          iind(i) = i
-          jind(i) = II4(ii)
-          !j = j + 1
-          exit
-       end if
-    end do
- end do
- !  xx $OMP END PARALLEL DO
+     olat = obs(i,1)
+     olon = obs(i,2)
+     i1i2 = lookup(mlat,olat)
+     j1j2 = lookup(mlon,olon)
+     i1 = i1i2(1)
+     i2 = i1i2(2)
+     j1 = j1j2(1)
+     j2 = j1j2(2)
+     II4(1) = sub2ind(nlat,i1,j1)
+     II4(2) = sub2ind(nlat,i2,j1)
+     II4(3) = sub2ind(nlat,i1,j2)
+     II4(4) = sub2ind(nlat,i2,j2)
+     h4 = intcoefnn(olat,olon,mlat(i1),mlat(i2),mlon(j1),mlon(j2))
+     do ii=1,4
+        if (h4(ii) > 0) then
+           h(i) = h4(ii)
+           iind(i) = i
+           jind(i) = II4(ii)
+           exit
+        end if
+     end do
+  end do
+  !$OMP END PARALLEL DO
 
 contains
   
