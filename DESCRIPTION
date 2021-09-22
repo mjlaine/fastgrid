@@ -1,8 +1,8 @@
 Package: fastgrid
 Type: Package
 Title: Gridding point data to a regular grid 
-Version: 0.9.15
-Date: 2021-05-26
+Version: 0.9.16
+Date: 2021-09-22
 Author: Marko Laine
 Maintainer: Marko Laine <marko.laine@fmi.fi>
 Description: This R code is mainly meant for gridding MOS point data at FMI.
